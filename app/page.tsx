@@ -565,7 +565,7 @@ export default function Home() {
           <div className="space-y-4">
             {/* Total Card */}
             <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-xl p-6 text-white shadow-sm">
-              <p className="text-sm opacity-90 mb-1">Total Joint Accounts</p>
+              <p className="text-sm opacity-90 mb-1">Total Value</p>
               <p className="text-4xl font-bold">{formatCurrency(calculateTotalJoint())}</p>
             </div>
 
