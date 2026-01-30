@@ -1,7 +1,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { authConfig } from "@/auth.config";
+import prisma from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -9,10 +13,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
-        // Lazy load Prisma and bcrypt to avoid bundling in Edge runtime
-        const prisma = (await import("@/lib/prisma")).default;
-        const bcrypt = await import("bcryptjs");
-
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Missing credentials");
         }
@@ -42,10 +42,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-  pages: {
-    signIn: "/login",
-  },
   callbacks: {
+    ...authConfig.callbacks,
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
