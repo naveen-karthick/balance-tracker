@@ -1,0 +1,69 @@
+{
+  "savingsAccount": 45000,
+  "lentOut": [
+    {
+      "category": "Friends",
+      "entries": [
+        {
+          "id": "1",
+          "name": "John Doe",
+          "amount": 5000,
+          "date": "2024-01-15",
+          "notes": "Emergency loan"
+        },
+        {
+          "id": "2",
+          "name": "Sarah Smith",
+          "amount": 3000,
+          "date": "2024-02-10",
+          "notes": "Business investment"
+        },
+        {
+          "id": "3",
+          "name": "Mike Johnson",
+          "amount": 1500,
+          "date": "2024-03-05",
+          "notes": "Personal loan"
+        }
+      ]
+    },
+    {
+      "category": "Family",
+      "entries": [
+        {
+          "id": "4",
+          "name": "Brother",
+          "amount": 10000,
+          "date": "2024-01-20",
+          "notes": "House downpayment help"
+        },
+        {
+          "id": "5",
+          "name": "Sister",
+          "amount": 2000,
+          "date": "2024-02-28",
+          "notes": "Education fees"
+        }
+      ]
+    },
+    {
+      "category": "Investments",
+      "entries": [
+        {
+          "id": "6",
+          "name": "Startup - TechCo",
+          "amount": 15000,
+          "date": "2024-03-15",
+          "notes": "Angel investment"
+        },
+        {
+          "id": "7",
+          "name": "Friend's Business",
+          "amount": 8000,
+          "date": "2024-04-01",
+          "notes": "Partnership investment"
+        }
+      ]
+    }
+  ]
+}
