@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -37,10 +38,22 @@ export default function RegisterPage() {
 
       setSuccess(true);
       
-      // Redirect to home page after 2 seconds
-      setTimeout(() => {
-        router.push("/");
-      }, 2000);
+      // Automatically sign in the user after registration
+      setTimeout(async () => {
+        const signInResult = await signIn("credentials", {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        });
+
+        if (signInResult?.ok) {
+          router.push("/");
+          router.refresh();
+        } else {
+          // If auto-login fails, redirect to login page
+          router.push("/login");
+        }
+      }, 1500);
     } catch (err) {
       setError("Network error. Please try again.");
       setLoading(false);
@@ -80,7 +93,7 @@ export default function RegisterPage() {
             Your account has been successfully created.
           </p>
           <p className="text-sm text-gray-500">
-            Redirecting to your dashboard...
+            Signing you in...
           </p>
         </div>
       </div>
