@@ -1,4 +1,11 @@
-export interface LentOutEntry {
+export interface PortfolioCategory {
+  id: string;
+  name: string;
+  amount: number;
+  isLiquid: boolean;
+}
+
+export interface LentEntry {
   id: string;
   name: string;
   amount: number;
@@ -6,12 +13,21 @@ export interface LentOutEntry {
   notes: string;
 }
 
-export interface LentOutCategory {
-  category: string;
-  entries: LentOutEntry[];
+export interface LentCategory {
+  id: string;
+  name: string;
+  entries: LentEntry[];
 }
 
-export interface Portfolio {
+export interface JointCategory {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+export interface AppData {
   savingsAccount: number;
-  lentOut: LentOutCategory[];
+  portfolioCategories: PortfolioCategory[];
+  lentCategories: LentCategory[];
+  jointCategories: JointCategory[];
 }

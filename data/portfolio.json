@@ -1,8 +1,47 @@
 {
   "savingsAccount": 45000,
-  "lentOut": [
+  "portfolioCategories": [
     {
-      "category": "Friends",
+      "id": "0",
+      "name": "Savings Account",
+      "amount": 45000,
+      "isLiquid": true
+    },
+    {
+      "id": "1",
+      "name": "Private Investment",
+      "amount": 20000,
+      "isLiquid": false
+    },
+    {
+      "id": "2",
+      "name": "Fixed Deposit",
+      "amount": 50000,
+      "isLiquid": true
+    },
+    {
+      "id": "3",
+      "name": "Stocks Invested",
+      "amount": 35000,
+      "isLiquid": false
+    },
+    {
+      "id": "4",
+      "name": "Groww",
+      "amount": 15000,
+      "isLiquid": true
+    },
+    {
+      "id": "5",
+      "name": "Shareworks (RSU)",
+      "amount": 80000,
+      "isLiquid": false
+    }
+  ],
+  "lentCategories": [
+    {
+      "id": "1",
+      "name": "Friends",
       "entries": [
         {
           "id": "1",
@@ -17,53 +56,33 @@
           "amount": 3000,
           "date": "2024-02-10",
           "notes": "Business investment"
-        },
-        {
-          "id": "3",
-          "name": "Mike Johnson",
-          "amount": 1500,
-          "date": "2024-03-05",
-          "notes": "Personal loan"
         }
       ]
     },
     {
-      "category": "Family",
+      "id": "2",
+      "name": "Family",
       "entries": [
         {
-          "id": "4",
+          "id": "3",
           "name": "Brother",
           "amount": 10000,
           "date": "2024-01-20",
           "notes": "House downpayment help"
-        },
-        {
-          "id": "5",
-          "name": "Sister",
-          "amount": 2000,
-          "date": "2024-02-28",
-          "notes": "Education fees"
         }
       ]
+    }
+  ],
+  "jointCategories": [
+    {
+      "id": "1",
+      "name": "Joint Savings",
+      "amount": 60000
     },
     {
-      "category": "Investments",
-      "entries": [
-        {
-          "id": "6",
-          "name": "Startup - TechCo",
-          "amount": 15000,
-          "date": "2024-03-15",
-          "notes": "Angel investment"
-        },
-        {
-          "id": "7",
-          "name": "Friend's Business",
-          "amount": 8000,
-          "date": "2024-04-01",
-          "notes": "Partnership investment"
-        }
-      ]
+      "id": "2",
+      "name": "Zerodha Account",
+      "amount": 25000
     }
   ]
 }

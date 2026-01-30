@@ -1,0 +1,129 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User Model
+model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  password    String   // Hashed password
+  name        String?
+  phoneNumber String?  @unique @map("phone_number")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  savingsAccount      SavingsAccount?
+  portfolioCategories PortfolioCategory[]
+  lentCategories      LentCategory[]
+  jointCategories     JointCategory[]
+  monthlyResets       MonthlyReset[]
+
+  @@map("users")
+}
+
+// Savings Account (for Bank Balance tab)
+model SavingsAccount {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique @map("user_id")
+  amount    Decimal  @default(0) @db.Decimal(12, 2)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("savings_account")
+}
+
+// Portfolio Categories (dynamic - user can add/remove)
+model PortfolioCategory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  name      String
+  amount    Decimal  @default(0) @db.Decimal(12, 2)
+  isLiquid  Boolean  @default(false) @map("is_liquid")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([isLiquid])
+  @@map("portfolio_categories")
+}
+
+// Joint Account Categories (dynamic)
+model JointCategory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  name      String
+  amount    Decimal  @default(0) @db.Decimal(12, 2)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("joint_categories")
+}
+
+// Lent Money Categories
+model LentCategory {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries LentEntry[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("lent_categories")
+}
+
+// Lent Money Entries (individual loans)
+model LentEntry {
+  id         Int      @id @default(autoincrement())
+  categoryId Int      @map("category_id")
+  name       String
+  amount     Decimal  @default(0) @db.Decimal(12, 2)
+  date       DateTime @db.Date
+  notes      String?  @db.Text
+  isPaid     Boolean  @default(false) @map("is_paid")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  category LentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([isPaid])
+  @@map("lent_entries")
+}
+
+// Monthly Resets History (track when liquid cash is reset)
+model MonthlyReset {
+  id                    Int      @id @default(autoincrement())
+  userId                Int      @map("user_id")
+  resetDate             DateTime @default(now()) @map("reset_date")
+  savingsAccountValue   Decimal  @db.Decimal(12, 2) @map("savings_account_value")
+  totalLiquid           Decimal  @db.Decimal(12, 2) @map("total_liquid")
+  totalPortfolio        Decimal  @db.Decimal(12, 2) @map("total_portfolio")
+  notes                 String?  @db.Text
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, resetDate])
+  @@map("monthly_resets")
+}
