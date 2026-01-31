@@ -7,6 +7,7 @@ import SetReminderModal from "./SetReminderModal";
 import TemplateCreatorModal from "./TemplateCreatorModal";
 import LoadTemplateModal from "./LoadTemplateModal";
 import LoadingOverlay from "./LoadingOverlay";
+import NotificationPrompt from "./NotificationPrompt";
 
 interface Task {
   id: number;
@@ -307,6 +308,8 @@ export default function MonthlyMissions() {
 
   return (
     <div className="px-4 py-6 max-w-4xl mx-auto">
+      <NotificationPrompt />
+      
       {/* Month Selector */}
       <div className="card p-4 mb-6">
         <div className="flex items-center justify-between mb-4">

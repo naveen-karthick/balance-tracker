@@ -27,6 +27,7 @@ model User {
   monthlyResets       MonthlyReset[]
   tasks               Task[]
   templates           Template[]
+  pushSubscriptions   PushSubscription[]
 
   @@map("users")
 }
@@ -173,4 +174,20 @@ model Template {
 
   @@index([userId]) // Fast fetch for user's templates
   @@map("templates")
+}
+
+// Push Notification Subscriptions
+model PushSubscription {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @map("user_id")
+  endpoint   String   @unique
+  p256dh     String
+  auth       String
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
 }
