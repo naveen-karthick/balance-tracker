@@ -1,7 +1,7 @@
 {
-  "name": "Balance Tracker",
-  "short_name": "Balance",
-  "description": "Personal money and portfolio tracker",
+  "name": "LifeOS - Personal Command Center",
+  "short_name": "LifeOS",
+  "description": "Manage your finances, tasks, and life in one place",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

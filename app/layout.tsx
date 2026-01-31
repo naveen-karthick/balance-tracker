@@ -1,19 +1,32 @@
 import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SessionProvider } from "@/components/SessionProvider";
+import { MainLayout } from "@/components/MainLayout";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "Balance Tracker",
-  description: "Personal money tracker app",
+  title: "LifeOS - Your Personal Command Center",
+  description: "Manage your finances, tasks, and life in one place",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Balance Tracker",
+    title: "LifeOS",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4F46E5",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({
@@ -23,8 +36,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+      >
+        <SessionProvider>
+          <MainLayout>{children}</MainLayout>
+        </SessionProvider>
       </body>
     </html>
   );

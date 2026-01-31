@@ -7,6 +7,7 @@ import AddCategoryModal from "@/components/AddCategoryModal";
 import EditCategoryModal from "@/components/EditCategoryModal";
 import AddLentEntryModal from "@/components/AddLentEntryModal";
 import EditLentEntryModal from "@/components/EditLentEntryModal";
+import AISummaryModal from "@/components/AISummaryModal";
 import Toggle from "@/components/Toggle";
 import Accordion from "@/components/Accordion";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -19,6 +20,11 @@ export default function Home() {
   const [includeJointInPortfolio, setIncludeJointInPortfolio] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
+  
+  const [aiSummaryModal, setAiSummaryModal] = useState({
+    isOpen: false,
+    summary: "",
+  });
 
   // Fetch data on mount
   useEffect(() => {
@@ -282,6 +288,29 @@ export default function Home() {
     }
   };
 
+  const handleGetAISummary = async () => {
+    setIsMutating(true);
+    try {
+      const response = await fetch("/api/ai/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ includeJointInPortfolio }),
+      });
+      const result = await response.json();
+      
+      if (result.error) {
+        alert(result.error);
+      } else {
+        setAiSummaryModal({ isOpen: true, summary: result.summary });
+      }
+    } catch (error) {
+      console.error("Failed to get AI summary:", error);
+      alert("Failed to generate AI summary. Please try again.");
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex items-center justify-center">
@@ -298,40 +327,25 @@ export default function Home() {
     );
   }
 
-  const handleLogout = async () => {
-    await signOut({ callbackUrl: '/login' });
-  };
-
-  const handleReload = () => {
-    window.location.reload();
-  };
-
   return (
-    <div className="min-h-screen bg-[#fafafa] pb-20">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-[#fafafa] pt-16 lg:pt-0 pb-8">
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Page Header with AI Summary */}
+        <div className="flex items-center justify-between py-4">
+          <h1 className="text-2xl font-bold text-gray-900">Balance Tracker</h1>
           <button
-            onClick={handleReload}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-            title="Reload"
+            onClick={handleGetAISummary}
+            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors flex items-center gap-2 text-sm font-medium"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-gray-700">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
             </svg>
-          </button>
-          <h1 className="text-2xl font-bold text-black">Balance Tracker</h1>
-          <button
-            onClick={handleLogout}
-            className="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
-          >
-            Logout
+            AI Summary
           </button>
         </div>
-      </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-[72px] z-10">
+        {/* Tab Navigation */}
+        <div className="bg-white border-b border-gray-200 sticky top-16 lg:top-0 z-10 -mx-4 px-4">
         <div className="grid grid-cols-3">
           <button
             onClick={() => setActiveTab("portfolio")}
@@ -668,7 +682,14 @@ export default function Home() {
         onDelete={handleDeleteLentEntry}
       />
 
+      <AISummaryModal
+        isOpen={aiSummaryModal.isOpen}
+        onClose={() => setAiSummaryModal({ isOpen: false, summary: "" })}
+        summary={aiSummaryModal.summary}
+      />
+
       {isMutating && <LoadingOverlay />}
+      </div>
     </div>
   );
 }

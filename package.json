@@ -15,8 +15,10 @@
     "db:seed": "node prisma/seed.js"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.9",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "ai": "^6.0.64",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "next": "^15.1.6",
@@ -24,7 +26,8 @@
     "next-pwa": "^5.6.0",
     "pg": "^8.17.2",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

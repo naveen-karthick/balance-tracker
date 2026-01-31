@@ -147,6 +147,9 @@ git push origin main
 | `DATABASE_URL` | PostgreSQL connection | Neon.tech dashboard (pooled) |
 | `NEXTAUTH_SECRET` | Auth secret key | Generate with `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | Production URL | Your Vercel deployment URL |
+| `AI_GATEWAY_TOKEN` | Vercel AI Gateway token (for AI summaries) | Vercel Dashboard → Settings → AI |
+
+**Note:** The `AI_GATEWAY_TOKEN` is optional. Add it only if you want to use the AI Summary feature. See `AI-SETUP.md` for details.
 
 ---
 
