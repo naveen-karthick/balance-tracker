@@ -29,6 +29,18 @@ export async function requestNotificationPermission() {
   }
 
   console.log('Waiting for service worker...');
+  
+  // Check if service worker is registered
+  const registrations = await navigator.serviceWorker.getRegistrations();
+  console.log('Service worker registrations:', registrations.length);
+  
+  if (registrations.length === 0) {
+    // Try to register it now
+    console.log('No service worker found, registering...');
+    await navigator.serviceWorker.register('/sw.js');
+    console.log('Service worker registered, waiting for ready...');
+  }
+  
   const registration = await navigator.serviceWorker.ready;
   console.log('Service worker ready, subscribing to push...');
 
