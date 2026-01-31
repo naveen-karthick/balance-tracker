@@ -81,11 +81,11 @@ export function Sidebar() {
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center">
+              <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">L</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-black">LifeOS</h1>
+                <h1 className="text-xl font-bold text-black tracking-tight">LifeOS</h1>
                 <p className="text-xs text-gray-500">Command Center</p>
               </div>
             </div>
@@ -102,8 +102,8 @@ export function Sidebar() {
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
-                      ? "bg-indigo-50 text-indigo-600 font-medium"
-                      : "text-gray-700 hover:bg-gray-100"
+                      ? "bg-gray-100 text-black font-medium"
+                      : "text-gray-600 hover:bg-gray-50"
                   }`}
                 >
                   {item.icon}
@@ -117,7 +117,7 @@ export function Sidebar() {
           <div className="p-4 border-t border-gray-200 space-y-2">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors border border-gray-200"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />

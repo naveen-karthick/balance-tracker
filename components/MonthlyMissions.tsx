@@ -65,7 +65,7 @@ export default function MonthlyMissions() {
       {/* Add Task Button */}
       <button 
         onClick={handleAddTask}
-        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-medium mb-6 hover:from-indigo-700 hover:to-purple-700 transition-all shadow-sm flex items-center justify-center gap-2"
+        className="btn-primary w-full py-3 rounded-lg mb-6 flex items-center justify-center gap-2"
       >
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -78,14 +78,14 @@ export default function MonthlyMissions() {
         {tasks.map((task) => (
           <div 
             key={task.id}
-            className={`bg-white rounded-xl p-4 shadow-sm border-l-4 ${
+            className={`card p-4 border-l-4 ${
               task.completed 
-                ? 'border-green-500' 
+                ? 'border-l-green-600' 
                 : task.overdue 
-                ? 'border-red-500' 
+                ? 'border-l-red-600' 
                 : task.hasReminder 
-                ? 'border-amber-500' 
-                : 'border-gray-300'
+                ? 'border-l-orange-500' 
+                : 'border-l-gray-300'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -113,13 +113,13 @@ export default function MonthlyMissions() {
                 <div className="flex items-center gap-2 mt-2">
                   {task.completed ? (
                     <>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Completed</span>
+                      <span className="badge-success text-xs px-2 py-1 rounded-md">Completed</span>
                       {task.hasReminder && <span className="text-xs text-gray-400">✓ Reminder sent</span>}
                     </>
                   ) : task.overdue ? (
-                    <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">⚠️ Overdue</span>
+                    <span className="badge-error text-xs px-2 py-1 rounded-md">⚠️ Overdue</span>
                   ) : task.hasReminder ? (
-                    <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full flex items-center gap-1">
+                    <span className="badge-warning text-xs px-2 py-1 rounded-md flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                       </svg>
@@ -128,7 +128,7 @@ export default function MonthlyMissions() {
                   ) : (
                     <button 
                       onClick={() => handleAddReminder(task.id)}
-                      className="text-xs text-indigo-600 flex items-center gap-1 hover:text-indigo-700"
+                      className="text-xs text-gray-600 flex items-center gap-1 hover:text-black"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -140,7 +140,7 @@ export default function MonthlyMissions() {
               </div>
               <button 
                 onClick={() => handleEditTask(task.id)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-gray-500">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
