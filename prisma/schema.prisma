@@ -25,6 +25,8 @@ model User {
   lentCategories      LentCategory[]
   jointCategories     JointCategory[]
   monthlyResets       MonthlyReset[]
+  tasks               Task[]
+  templates           Template[]
 
   @@map("users")
 }
@@ -126,4 +128,49 @@ model MonthlyReset {
 
   @@index([userId, resetDate])
   @@map("monthly_resets")
+}
+
+// Monthly Missions - Tasks
+model Task {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  month        String   // Format: "YYYY-MM" for efficient month-based queries
+  title        String
+  dueDate      DateTime @map("due_date") // Store as DateTime for efficient date comparisons
+  description  String?  @db.Text
+  completed    Boolean  @default(false)
+  hasReminder  Boolean  @default(false) @map("has_reminder")
+  reminderDate DateTime? @map("reminder_date") // When to send reminder (can be different from dueDate)
+  
+  // Notification tracking (for future use with cron jobs)
+  reminderSent Boolean  @default(false) @map("reminder_sent")
+  lastReminderSentAt DateTime? @map("last_reminder_sent_at")
+  
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Indexes for efficient queries
+  @@index([userId, month]) // Fast fetch for user's tasks in a specific month
+  @@index([reminderDate, hasReminder, completed, reminderSent]) // Optimized for cron job: find tasks needing reminders
+  @@index([dueDate]) // For querying overdue tasks
+  @@index([userId, completed]) // For filtering completed/incomplete tasks
+  @@map("tasks")
+}
+
+// Mission Templates
+model Template {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  name      String
+  tasks     Json     // Array of template tasks: [{ title, dayOfMonth, description, setReminderOnDueDate }]
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId]) // Fast fetch for user's templates
+  @@map("templates")
 }

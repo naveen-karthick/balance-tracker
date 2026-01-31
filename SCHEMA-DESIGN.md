@@ -1,214 +1,408 @@
-# Balance Tracker - Database Schema Design
+# Prisma Schema Design for Monthly Missions
 
-## Overview
+## Task Model - Optimized for Cron Jobs
 
-This schema supports a **fully dynamic** portfolio tracker where users can:
-- Add/remove/edit portfolio categories
-- Mark categories as "liquid" for monthly tracking
-- Adjust savings account independently at any time
-- Track lent money with categories and individual entries
-- Manage joint accounts with dynamic categories
-- Track monthly resets with history
+### Core Fields
 
-## Core Principles
-
-1. **Dynamic Categories**: No hardcoded account types - users create their own
-2. **Liquid Flag**: Portfolio items can be marked as "liquid" to include in monthly calculations
-3. **Independent Savings**: Savings account is standalone, adjustable anytime
-4. **Audit Trail**: Track all changes for financial accuracy
-5. **Multi-User Ready**: Schema supports multiple users (future-proof)
-
-## Tables
-
-### 1. `users`
-Basic user information for authentication and multi-user support.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| email | VARCHAR(255) | Unique email |
-| name | VARCHAR(100) | User's name |
-| created_at | TIMESTAMP | Account creation |
-| updated_at | TIMESTAMP | Last update |
-
-### 2. `savings_account`
-Standalone savings account that can be adjusted independently.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INT | FK to users |
-| amount | DECIMAL(12,2) | Current balance |
-| updated_at | TIMESTAMP | Last update |
-
-**Why Separate?**
-- Savings is the core balance, adjustable anytime
-- Not tied to portfolio categories
-- Referenced in both Portfolio and Liquid Cash views
-
-### 3. `portfolio_categories`
-**Dynamic** portfolio categories (Groww, Shareworks, Fixed Deposit, etc.)
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INT | FK to users |
-| name | VARCHAR(100) | Category name (user-defined) |
-| amount | DECIMAL(12,2) | Current value |
-| **is_liquid** | **BOOLEAN** | **Include in liquid cash?** |
-| sort_order | INT | Display order |
-| created_at | TIMESTAMP | Creation time |
-| updated_at | TIMESTAMP | Last update |
-
-**Key Feature: `is_liquid` Flag**
-- When `TRUE`: Included in monthly liquid cash calculation
-- When `FALSE`: Only in total portfolio
-- Example: Fixed Deposit = liquid, Shareworks RSU = not liquid
-
-### 4. `joint_categories`
-Dynamic categories for joint accounts.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INT | FK to users |
-| name | VARCHAR(100) | Category name |
-| amount | DECIMAL(12,2) | Current value |
-| sort_order | INT | Display order |
-| created_at | TIMESTAMP | Creation time |
-| updated_at | TIMESTAMP | Last update |
-
-### 5. `lent_categories`
-Categories for organizing lent money (Friends, Family, Business, etc.)
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INT | FK to users |
-| name | VARCHAR(100) | Category name |
-| sort_order | INT | Display order |
-| created_at | TIMESTAMP | Creation time |
-
-### 6. `lent_entries`
-Individual loans/lent amounts.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| category_id | INT | FK to lent_categories |
-| name | VARCHAR(100) | Person/entity name |
-| amount | DECIMAL(12,2) | Amount lent |
-| date | DATE | When lent |
-| notes | TEXT | Additional details |
-| is_paid | BOOLEAN | Repaid? |
-| created_at | TIMESTAMP | Entry creation |
-| updated_at | TIMESTAMP | Last update |
-
-### 7. `monthly_resets`
-History of monthly liquid cash resets.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| id | SERIAL | Primary key |
-| user_id | INT | FK to users |
-| reset_date | TIMESTAMP | When reset |
-| savings_account_value | DECIMAL(12,2) | Savings at reset |
-| total_liquid | DECIMAL(12,2) | Liquid cash at reset |
-| total_portfolio | DECIMAL(12,2) | Portfolio at reset |
-| notes | TEXT | Optional notes |
-
-## Key Calculations
-
-### Total Portfolio
-```sql
-Savings Account + SUM(all portfolio_categories.amount)
+```prisma
+model Task {
+  id           Int      @id @default(autoincrement())
+  userId       String
+  month        String   // "YYYY-MM" for fast month filtering
+  title        String
+  dueDate      DateTime // Full DateTime for precise comparisons
+  description  String?  @db.Text
+  completed    Boolean  @default(false)
+  hasReminder  Boolean  @default(false)
+  reminderDate DateTime? // When to send notification
+  
+  // Future: Notification tracking
+  reminderSent Boolean  @default(false)
+  lastReminderSentAt DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
 ```
 
-### Liquid Cash
-```sql
-Savings Account 
-+ SUM(portfolio_categories WHERE is_liquid = TRUE) 
-+ SUM(lent_entries WHERE is_paid = FALSE)
+---
+
+## Index Strategy for Scalability
+
+### 1. **User + Month Index** (Most Common Query)
+```prisma
+@@index([userId, month])
 ```
 
-### Joint Total
+**Use Case:**
 ```sql
-SUM(joint_categories.amount)
+-- Fetch all tasks for user in January 2026
+SELECT * FROM Task WHERE userId = ? AND month = '2026-01'
 ```
 
-## Use Cases
+**Performance:** O(log n) lookup, very fast
 
-### Adding a New Investment Type
-```sql
-INSERT INTO portfolio_categories (user_id, name, amount, is_liquid)
-VALUES (1, 'Mutual Funds', 50000, TRUE);
+---
+
+### 2. **Cron Job Index** (Hourly Reminder Check)
+```prisma
+@@index([reminderDate, hasReminder, completed, reminderSent])
 ```
 
-### Marking Category as Liquid
+**Use Case:**
 ```sql
-UPDATE portfolio_categories 
-SET is_liquid = TRUE 
-WHERE id = 5; -- Groww account
+-- Find tasks that need reminders sent TODAY
+SELECT * FROM Task 
+WHERE DATE(reminderDate) = CURRENT_DATE
+  AND hasReminder = true
+  AND completed = false
+  AND reminderSent = false
 ```
 
-### Adjusting Savings Independently
-```sql
-UPDATE savings_account 
-SET amount = 48000, updated_at = NOW() 
-WHERE user_id = 1;
+**Why This Order:**
+1. **reminderDate** - Filter to today's date first (most selective)
+2. **hasReminder** - Only tasks with reminders enabled
+3. **completed** - Exclude completed tasks
+4. **reminderSent** - Exclude already-sent reminders
+
+**Performance:** Composite index allows efficient filtering without full table scan
+
+---
+
+### 3. **Due Date Index** (Overdue Queries)
+```prisma
+@@index([dueDate])
 ```
 
-### Monthly Reset
+**Use Case:**
 ```sql
--- 1. Log the reset
-INSERT INTO monthly_resets (user_id, savings_account_value, total_liquid, total_portfolio)
-VALUES (1, 45000, 68000, 245000);
-
--- 2. Update savings if needed
-UPDATE savings_account 
-SET amount = 45000, updated_at = NOW() 
-WHERE user_id = 1;
+-- Find overdue tasks
+SELECT * FROM Task 
+WHERE dueDate < CURRENT_DATE 
+  AND completed = false
 ```
 
-### Getting Money Lent by Category
-```sql
-SELECT 
-  lc.name as category,
-  COUNT(le.id) as num_entries,
-  SUM(le.amount) as total_lent
-FROM lent_categories lc
-LEFT JOIN lent_entries le ON le.category_id = lc.id
-WHERE lc.user_id = 1 AND (le.is_paid = FALSE OR le.id IS NULL)
-GROUP BY lc.id, lc.name;
+---
+
+
+### 4. **User + Completed Index** (Filter UI)
+```prisma
+@@index([userId, completed])
 ```
 
-## Views (Pre-calculated)
+**Use Case:**
+```sql
+-- Show only incomplete tasks for a user
+SELECT * FROM Task WHERE userId = ? AND completed = false
+```
 
-### `v_portfolio_total`
-Quick access to total portfolio per user.
+---
 
-### `v_liquid_cash`
-Breakdown of liquid cash components.
+## Cron Job Query Pattern
 
-### `v_joint_total`
-Joint account totals.
+### Efficient Hourly Reminder Check
 
-## Future Enhancements
+```typescript
+// app/api/cron/send-reminders/route.ts
+export async function GET() {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
-1. **Transaction History**: Track every change as a transaction
-2. **Recurring Entries**: Auto-add monthly investments
-3. **Goals**: Set savings/investment targets
-4. **Analytics**: Trends, charts, projections
-5. **Multi-Currency**: Support different currencies
-6. **Sharing**: Share joint accounts with partner
+  // Find tasks needing reminders TODAY
+  const tasksNeedingReminders = await prisma.task.findMany({
+    where: {
+      reminderDate: {
+        gte: today,
+        lt: tomorrow,
+      },
+      hasReminder: true,
+      completed: false,
+      reminderSent: false,
+    },
+    include: {
+      user: {
+        select: {
+          email: true,
+          name: true,
+        },
+      },
+    },
+  });
 
-## Migration Path
+  // Send reminders (Vercel Cron will call this endpoint)
+  for (const task of tasksNeedingReminders) {
+    await sendReminderNotification(task);
+    
+    // Mark as sent
+    await prisma.task.update({
+      where: { id: task.id },
+      data: {
+        reminderSent: true,
+        lastReminderSentAt: new Date(),
+      },
+    });
+  }
 
-Current: JSON → Next: PostgreSQL with Prisma ORM
+  return { sent: tasksNeedingReminders.length };
+}
+```
 
-1. Install Prisma: `npm install @prisma/client prisma`
-2. Initialize: `npx prisma init`
-3. Apply schema: `npx prisma db push`
-4. Generate client: `npx prisma generate`
-5. Create API routes for CRUD operations
-6. Migrate data from JSON to DB
+---
+
+## Template Model
+
+### JSON Structure for Flexibility
+
+```prisma
+model Template {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  name      String
+  tasks     Json     // Flexible structure
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+```
+
+### Template JSON Format
+
+```json
+{
+  "tasks": [
+    {
+      "title": "Pay credit card",
+      "dayOfMonth": 15,
+      "description": "Full payment",
+      "setReminderOnDueDate": true
+    },
+    {
+      "title": "Review portfolio",
+      "dayOfMonth": 28,
+      "description": "",
+      "setReminderOnDueDate": false
+    }
+  ]
+}
+```
+
+**Why JSON?**
+- Flexible schema (easy to add fields)
+- Templates don't need complex queries
+- Simpler than separate `TemplateTask` junction table
+- Easy to serialize/deserialize
+
+---
+
+## Vercel Cron Configuration
+
+### vercel.json
+
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/send-reminders",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
+```
+
+**Schedule:** Every hour at :00 (e.g., 9:00, 10:00, 11:00)
+
+**Alternative Schedules:**
+- `0 9 * * *` - Daily at 9:00 AM
+- `0 9,15 * * *` - Daily at 9:00 AM and 3:00 PM
+- `*/30 * * * *` - Every 30 minutes
+
+---
+
+## Scalability Considerations
+
+### Current Design (Good for <1M tasks)
+- Indexes ensure fast queries
+- DateTime fields allow precise filtering
+- Composite index on cron query path
+
+### Future Optimizations (If Needed)
+
+1. **Partitioning by Month**
+   - Separate tables per month (e.g., `Task_2026_01`)
+   - Reduces index size for large datasets
+
+2. **Separate Reminders Table**
+   ```prisma
+   model Reminder {
+     id         Int      @id @default(autoincrement())
+     taskId     Int
+     scheduledFor DateTime
+     sent       Boolean  @default(false)
+     sentAt     DateTime?
+     
+     task Task @relation(fields: [taskId], references: [id])
+     
+     @@index([scheduledFor, sent])
+   }
+   ```
+   - Better for tasks with multiple reminders
+   - Easier to query/update
+
+3. **Background Job Queue**
+   - Use services like Inngest, QStash, or BullMQ
+   - Better than Vercel Cron for high volume
+   - Retry logic, failure handling
+
+4. **Notification Service**
+   - Separate microservice for sending notifications
+   - Use SQS/RabbitMQ for queueing
+   - Push notifications via Firebase, OneSignal, etc.
+
+---
+
+## Database Performance Tips
+
+### 1. Use DateTime for Date Comparisons
+```typescript
+// ❌ Slow - String comparison
+dueDate: "2026-01-15"
+
+// ✅ Fast - DateTime comparison
+dueDate: new Date("2026-01-15")
+```
+
+### 2. Limit Fields in Cron Queries
+```typescript
+// Only fetch what you need
+const tasks = await prisma.task.findMany({
+  where: {...},
+  select: {
+    id: true,
+    title: true,
+    user: {
+      select: {
+        email: true,
+      },
+    },
+  },
+});
+```
+
+### 3. Batch Updates
+```typescript
+// Update multiple tasks at once
+await prisma.task.updateMany({
+  where: {
+    id: { in: taskIds },
+  },
+  data: {
+    reminderSent: true,
+  },
+});
+```
+
+### 4. Monitor Query Performance
+```typescript
+// Enable query logging in development
+const prisma = new PrismaClient({
+  log: ['query', 'info', 'warn', 'error'],
+});
+```
+
+---
+
+## Migration Strategy
+
+### Step 1: Add Models (This PR)
+```bash
+npx prisma migrate dev --name add_missions_models
+```
+
+### Step 2: Migrate Data from In-Memory
+- Update `lib/missions-data.ts` to use Prisma
+- Replace mock data operations with database queries
+
+### Step 3: Deploy
+- Push schema to production database
+- Vercel will auto-run `prisma generate` on build
+
+### Step 4: Add Cron (Future)
+- Create `/api/cron/send-reminders` endpoint
+- Configure `vercel.json`
+- Test with Vercel Cron
+
+---
+
+## Example Queries
+
+### Get Monthly Tasks
+```typescript
+const tasks = await prisma.task.findMany({
+  where: {
+    userId: user.id,
+    month: "2026-01",
+  },
+  orderBy: {
+    dueDate: 'asc',
+  },
+});
+```
+
+### Get Overdue Tasks
+```typescript
+const overdueTasks = await prisma.task.findMany({
+  where: {
+    userId: user.id,
+    dueDate: {
+      lt: new Date(),
+    },
+    completed: false,
+  },
+});
+```
+
+### Get Tasks Due Today
+```typescript
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+const tomorrow = new Date(today);
+tomorrow.setDate(tomorrow.getDate() + 1);
+
+const dueToday = await prisma.task.findMany({
+  where: {
+    userId: user.id,
+    dueDate: {
+      gte: today,
+      lt: tomorrow,
+    },
+    completed: false,
+  },
+});
+```
+
+---
+
+## Notification Strategy (Future)
+
+### Option 1: Email Reminders (Easiest)
+- Use Resend, SendGrid, or Mailgun
+- Send email when reminder is due
+- Good for desktop/web users
+
+### Option 2: Push Notifications (Better UX)
+- Use Firebase Cloud Messaging (FCM)
+- Store device tokens in `User` model
+- Native app feel
+- Works when app is closed
+
+### Option 3: SMS (Premium)
+- Use Twilio
+- Store phone number (already in schema)
+- Highest engagement rate
+- Costs per message
+
+### Recommended: Push + Email Fallback
+1. Try push notification first
+2. Fall back to email if push fails
+3. User can configure preferences
