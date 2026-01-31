@@ -23,19 +23,30 @@ export default function NotificationPrompt() {
   const handleEnableNotifications = async () => {
     setLoading(true);
     try {
+      console.log('Requesting notification permission...');
       const subscription = await requestNotificationPermission();
+      console.log('Subscription obtained:', subscription);
       
-      await fetch('/api/notifications/subscribe', {
+      const response = await fetch('/api/notifications/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription.toJSON()),
       });
 
+      console.log('Subscribe response:', response.status);
+      const data = await response.json();
+      console.log('Subscribe data:', data);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to subscribe');
+      }
+
       setPermission('granted');
       setIsSubscribed(true);
+      alert('Notifications enabled! 🎉');
     } catch (error) {
       console.error('Failed to enable notifications:', error);
-      alert('Failed to enable notifications');
+      alert(`Failed to enable notifications: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }

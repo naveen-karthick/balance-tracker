@@ -10,6 +10,8 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export async function requestNotificationPermission() {
+  console.log('Checking notification support...');
+  
   if (!('Notification' in window)) {
     throw new Error('Notifications not supported');
   }
@@ -18,19 +20,31 @@ export async function requestNotificationPermission() {
     throw new Error('Service Worker not supported');
   }
 
+  console.log('Requesting permission...');
   const permission = await Notification.requestPermission();
+  console.log('Permission result:', permission);
+  
   if (permission !== 'granted') {
     throw new Error('Notification permission denied');
   }
 
+  console.log('Waiting for service worker...');
   const registration = await navigator.serviceWorker.ready;
+  console.log('Service worker ready, subscribing to push...');
+
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  console.log('VAPID key available:', !!vapidKey);
+  
+  if (!vapidKey) {
+    throw new Error('VAPID public key not configured');
+  }
+
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(
-      process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-    ),
+    applicationServerKey: urlBase64ToUint8Array(vapidKey),
   });
 
+  console.log('Push subscription created:', subscription.endpoint);
   return subscription;
 }
 
