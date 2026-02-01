@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+import { NotificationProvider } from "./NotificationPrompt";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -29,11 +30,13 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
 
   // Authenticated user on private route - show sidebar layout
   return (
-    <div className="min-h-screen bg-[#fafafa]">
-      <Sidebar />
-      <main className="lg:ml-64">
-        {children}
-      </main>
-    </div>
+    <NotificationProvider>
+      <div className="min-h-screen bg-[#fafafa]">
+        <Sidebar />
+        <main className="lg:ml-64">
+          {children}
+        </main>
+      </div>
+    </NotificationProvider>
   );
 }

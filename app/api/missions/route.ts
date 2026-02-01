@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { month, title, dueDate, description } = body;
+    const { month, title, dueDate, description, hasReminder, reminderDate } = body;
 
     // Validation
     if (!month || !title || !dueDate) {
@@ -78,7 +78,8 @@ export async function POST(request: Request) {
       dueDate,
       description: description || "",
       completed: false,
-      hasReminder: false,
+      hasReminder: hasReminder === true,
+      reminderDate: hasReminder === true ? (reminderDate || dueDate) : undefined,
     });
 
     return NextResponse.json(newTask, { status: 201 });

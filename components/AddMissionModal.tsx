@@ -6,21 +6,28 @@ import { Fragment, useState } from "react";
 interface AddMissionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (mission: { title: string; dueDate: string; description?: string }) => void;
+  onAdd: (mission: { title: string; dueDate: string; description?: string; hasReminder?: boolean; reminderDate?: string }) => void;
 }
 
 export default function AddMissionModal({ isOpen, onClose, onAdd }: AddMissionModalProps) {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [description, setDescription] = useState("");
+  const [addReminderOnDueDate, setAddReminderOnDueDate] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (title && dueDate) {
-      onAdd({ title, dueDate, description });
+      onAdd({
+        title,
+        dueDate,
+        description,
+        ...(addReminderOnDueDate && { hasReminder: true, reminderDate: dueDate }),
+      });
       setTitle("");
       setDueDate("");
       setDescription("");
+      setAddReminderOnDueDate(false);
       onClose();
     }
   };
@@ -90,6 +97,16 @@ export default function AddMissionModal({ isOpen, onClose, onAdd }: AddMissionMo
                         required
                       />
                     </div>
+
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={addReminderOnDueDate}
+                        onChange={(e) => setAddReminderOnDueDate(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-black focus:ring-black"
+                      />
+                      <span className="text-sm text-gray-700">Add reminder on due date</span>
+                    </label>
 
                     <div>
                       <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">

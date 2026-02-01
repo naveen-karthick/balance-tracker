@@ -1,7 +1,7 @@
 "use client";
 
 import { Dialog, Transition } from "@headlessui/react";
-import { Fragment, useState } from "react";
+import { Fragment, useState, useEffect } from "react";
 
 interface TemplateTask {
   title: string;
@@ -10,13 +10,20 @@ interface TemplateTask {
   setReminderOnDueDate: boolean;
 }
 
+interface Template {
+  id: number;
+  name: string;
+  tasks: TemplateTask[];
+}
+
 interface TemplateCreatorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (template: { name: string; tasks: TemplateTask[] }) => void;
+  onSave: (template: { name: string; tasks: TemplateTask[] }, templateId?: number) => void;
+  template?: Template | null;
 }
 
-export default function TemplateCreatorModal({ isOpen, onClose, onSave }: TemplateCreatorModalProps) {
+export default function TemplateCreatorModal({ isOpen, onClose, onSave, template }: TemplateCreatorModalProps) {
   const [templateName, setTemplateName] = useState("");
   const [tasks, setTasks] = useState<TemplateTask[]>([]);
   const [currentTask, setCurrentTask] = useState({
@@ -25,6 +32,19 @@ export default function TemplateCreatorModal({ isOpen, onClose, onSave }: Templa
     description: "",
     setReminderOnDueDate: true,
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      if (template) {
+        setTemplateName(template.name);
+        setTasks(template.tasks.map((t) => ({ ...t, setReminderOnDueDate: t.setReminderOnDueDate ?? true })));
+      } else {
+        setTemplateName("");
+        setTasks([]);
+      }
+      setCurrentTask({ title: "", dayOfMonth: 1, description: "", setReminderOnDueDate: true });
+    }
+  }, [isOpen, template]);
 
   const handleAddTask = () => {
     if (currentTask.title && currentTask.dayOfMonth) {
@@ -45,12 +65,14 @@ export default function TemplateCreatorModal({ isOpen, onClose, onSave }: Templa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (templateName && tasks.length > 0) {
-      onSave({ name: templateName, tasks });
+      onSave({ name: templateName, tasks }, template?.id);
       setTemplateName("");
       setTasks([]);
       onClose();
     }
   };
+
+  const isEditMode = !!template;
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -83,10 +105,12 @@ export default function TemplateCreatorModal({ isOpen, onClose, onSave }: Templa
                   {/* Header */}
                   <div className="border-b border-gray-200 px-6 py-4">
                     <Dialog.Title className="text-lg font-semibold text-gray-900">
-                      Create Mission Template
+                      {isEditMode ? "Edit Template" : "Create Mission Template"}
                     </Dialog.Title>
                     <p className="text-sm text-gray-600 mt-1">
-                      Create a reusable template for recurring monthly tasks
+                      {isEditMode
+                        ? "Update the template name and tasks."
+                        : "Create a reusable template for recurring monthly tasks"}
                     </p>
                   </div>
 
@@ -203,7 +227,7 @@ export default function TemplateCreatorModal({ isOpen, onClose, onSave }: Templa
                       disabled={!templateName || tasks.length === 0}
                       className="btn-primary flex-1 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Save Template
+                      {isEditMode ? "Update Template" : "Save Template"}
                     </button>
                   </div>
                 </form>

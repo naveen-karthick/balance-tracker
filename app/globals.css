@@ -139,3 +139,16 @@
 .slide-in-left {
   animation: slideInLeft 0.3s ease-out;
 }
+
+/* Bell shake when notifications not enabled */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px); }
+  40% { transform: translateX(3px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+.animate-shake {
+  animation: shake 1.5s ease-in-out infinite;
+}

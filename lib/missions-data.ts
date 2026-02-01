@@ -11,6 +11,8 @@ export interface Task {
   completed: boolean;
   hasReminder: boolean;
   reminderDate?: string;
+  reminderSent?: boolean;
+  lastReminderSentAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,6 +42,8 @@ function serializeTask(task: any): Task {
     completed: task.completed,
     hasReminder: task.hasReminder,
     reminderDate: task.reminderDate ? task.reminderDate.toISOString().split("T")[0] : undefined,
+    reminderSent: task.reminderSent ?? false,
+    lastReminderSentAt: task.lastReminderSentAt ? task.lastReminderSentAt.toISOString() : undefined,
     createdAt: task.createdAt.toISOString(),
     updatedAt: task.updatedAt.toISOString(),
   };
@@ -95,6 +99,9 @@ export const taskOperations = {
     if (data.dueDate) data.dueDate = new Date(data.dueDate);
     if (data.reminderDate !== undefined) {
       data.reminderDate = data.reminderDate ? new Date(data.reminderDate) : null;
+    }
+    if (data.lastReminderSentAt !== undefined) {
+      data.lastReminderSentAt = data.lastReminderSentAt ? new Date(data.lastReminderSentAt) : null;
     }
 
     const task = await prisma.task.update({
@@ -152,6 +159,22 @@ export const templateOperations = {
       },
     });
     return serializeTemplate(template);
+  },
+
+  update: async (userId: number, id: number, data: { name?: string; tasks?: Template["tasks"] }) => {
+    const template = await prisma.template.findFirst({
+      where: { id, userId },
+    });
+    if (!template) return null;
+
+    const updated = await prisma.template.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined && { name: data.name }),
+        ...(data.tasks !== undefined && { tasks: data.tasks as any }),
+      },
+    });
+    return serializeTemplate(updated);
   },
 
   delete: async (userId: number, id: number) => {
