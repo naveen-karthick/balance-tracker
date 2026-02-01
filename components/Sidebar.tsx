@@ -31,7 +31,7 @@ export function Sidebar() {
       ),
     },
     {
-      name: "Monthly Reminders",
+      name: "Monthly Tasks",
       href: "/missions",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -56,7 +56,7 @@ export function Sidebar() {
           </button>
           {isMissions && <NotificationIcon />}
         </div>
-        <h1 className="text-xl font-bold text-black">Wealth Ledger</h1>
+        <h1 className="text-xl font-bold text-black">LifeOS</h1>
         <button
             onClick={handleReload}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"

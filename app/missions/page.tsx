@@ -82,12 +82,15 @@ export default function MissionsPage() {
 
   return (
     <div className="pt-16 lg:pt-0">
+      <div className="max-w-4xl mx-auto px-4 pt-4 pb-2">
+        <h1 className="text-xl font-bold text-black tracking-tight">Monthly Tasks</h1>
+      </div>
       <MonthlyMissions />
       {showIntroModal && (
         <SpotlightModal
           isOpen={true}
           onDismiss={handleDismissIntroModal}
-          title="Monthly Reminders"
+          title="Monthly Tasks"
         >
           <p>Track monthly tasks with due dates and reminders. Add one-off tasks or load from templates so recurring work stays in one place.</p>
         </SpotlightModal>
