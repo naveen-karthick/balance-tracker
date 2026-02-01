@@ -3,13 +3,49 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import webpush from "web-push";
 
+function getVapidPrivateKey(): string {
+  const raw = process.env.VAPID_PRIVATE_KEY?.trim();
+  if (!raw) {
+    throw new Error("VAPID_PRIVATE_KEY is not set in environment");
+  }
+  // web-push expects base64url that decodes to exactly 32 bytes
+  try {
+    const decoded = Buffer.from(raw, "base64url");
+    if (decoded.length !== 32) {
+      // Safe debug: only lengths, never the actual key
+      console.error(
+        "[VAPID] Private key decoded length is",
+        decoded.length,
+        "(expected 32). Raw string length:",
+        raw.length
+      );
+      throw new Error(
+        `VAPID private key must decode to 32 bytes (got ${decoded.length}). Check for extra spaces, newlines, or wrong key.`
+      );
+    }
+    return raw;
+  } catch (e: any) {
+    if (e.message?.includes("decode to 32 bytes")) throw e;
+    console.error("[VAPID] Private key invalid base64url. Raw length:", raw.length);
+    throw new Error(
+      "VAPID_PRIVATE_KEY is not valid base64url. Regenerate with: npx web-push generate-vapid-keys"
+    );
+  }
+}
+
 export async function POST(request: Request) {
-  // Configure web-push with VAPID details
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT!,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  );
+  const subject = process.env.VAPID_SUBJECT?.trim();
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
+  if (!subject || !publicKey) {
+    return NextResponse.json(
+      { error: "VAPID_SUBJECT or NEXT_PUBLIC_VAPID_PUBLIC_KEY not set" },
+      { status: 500 }
+    );
+  }
+
+  const privateKey = getVapidPrivateKey();
+
+  webpush.setVapidDetails(subject, publicKey, privateKey);
   try {
     const session = await auth();
     if (!session?.user?.email) {
