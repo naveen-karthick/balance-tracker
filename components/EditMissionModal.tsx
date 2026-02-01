@@ -47,7 +47,7 @@ export default function EditMissionModal({ isOpen, onClose, mission, onSave, onD
   };
 
   const handleDelete = () => {
-    if (mission && confirm("Are you sure you want to delete this mission?")) {
+    if (mission && confirm("Are you sure you want to delete this task?")) {
       onDelete(mission.id);
       onClose();
     }
@@ -95,7 +95,7 @@ export default function EditMissionModal({ isOpen, onClose, mission, onSave, onD
                   {/* Header */}
                   <div className="border-b border-gray-200 px-6 py-4">
                     <Dialog.Title className="text-lg font-semibold text-gray-900">
-                      Edit Mission
+                      Edit Task
                     </Dialog.Title>
                   </div>
 
@@ -103,7 +103,7 @@ export default function EditMissionModal({ isOpen, onClose, mission, onSave, onD
                   <div className="px-6 py-4 space-y-4">
                     <div>
                       <label htmlFor="edit-title" className="block text-sm font-medium text-gray-700 mb-1">
-                        Mission Title *
+                        Task Title *
                       </label>
                       <input
                         type="text"

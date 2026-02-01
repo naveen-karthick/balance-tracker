@@ -55,7 +55,7 @@ export default function LoginPage() {
             Welcome Back
           </h1>
           <p className="text-gray-600">
-            Sign in to your Balance Tracker
+            Sign in to Wealth Ledger
           </p>
         </div>
 

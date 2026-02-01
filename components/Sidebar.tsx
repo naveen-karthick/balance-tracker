@@ -22,7 +22,7 @@ export function Sidebar() {
 
   const navItems = [
     {
-      name: "Balance Tracker",
+      name: "Wealth Ledger",
       href: "/",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -31,7 +31,7 @@ export function Sidebar() {
       ),
     },
     {
-      name: "Monthly Missions",
+      name: "Monthly Reminders",
       href: "/missions",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
@@ -56,7 +56,7 @@ export function Sidebar() {
           </button>
           {isMissions && <NotificationIcon />}
         </div>
-        <h1 className="text-xl font-bold text-black">LifeOS</h1>
+        <h1 className="text-xl font-bold text-black">Wealth Ledger</h1>
         <button
             onClick={handleReload}
             className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -98,11 +98,6 @@ export function Sidebar() {
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-            {isMissions && (
-              <div className="mb-2">
-                <NotificationIcon />
-              </div>
-            )}
             {navItems.map((item) => {
               const isActive = pathname === item.href;
               return (

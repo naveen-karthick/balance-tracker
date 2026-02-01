@@ -1,4 +1,4 @@
-# Balance Tracker API Documentation
+# Wealth Ledger API Documentation
 
 ## Overview
 

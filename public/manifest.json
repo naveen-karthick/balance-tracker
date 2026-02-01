@@ -1,7 +1,7 @@
 {
-  "name": "LifeOS - Personal Command Center",
-  "short_name": "LifeOS",
-  "description": "Manage your finances, tasks, and life in one place",
+  "name": "Wealth Ledger - Portfolio, Book Keeping & Joint Accounts",
+  "short_name": "Wealth Ledger",
+  "description": "Track your portfolio, bank balance, money lent out, and joint accounts in one place",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -1,4 +1,4 @@
-# Balance Tracker
+# Wealth Ledger
 
 A personal portfolio and money tracker app built with Next.js. Track your savings account balance and money lent out across different categories.
 

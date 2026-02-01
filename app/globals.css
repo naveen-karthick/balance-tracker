@@ -140,6 +140,56 @@
   animation: slideInLeft 0.3s ease-out;
 }
 
+/* Driver.js spotlight – match app theme */
+.driver-popover {
+  border-radius: 1rem !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12) !important;
+}
+.driver-popover-close-btn {
+  color: var(--gray-600) !important;
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 20px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 0.5rem !important;
+  transition: color 0.2s, background-color 0.2s !important;
+}
+.driver-popover-close-btn:hover,
+.driver-popover-close-btn:focus {
+  color: var(--foreground) !important;
+  background-color: var(--gray-100) !important;
+}
+.driver-popover-footer button {
+  padding: 0.5rem 1rem !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  border-radius: 0.5rem !important;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s !important;
+}
+.driver-popover-footer button:hover,
+.driver-popover-footer button:focus {
+  background-color: var(--gray-100) !important;
+  color: var(--foreground) !important;
+  border-color: var(--gray-300) !important;
+}
+.driver-popover-footer button:last-child {
+  background-color: var(--primary) !important;
+  color: white !important;
+  border: 1px solid var(--primary) !important;
+}
+.driver-popover-footer button:last-child:hover,
+.driver-popover-footer button:last-child:focus {
+  background-color: var(--primary-hover) !important;
+  border-color: var(--primary-hover) !important;
+  color: white !important;
+}
+.driver-popover-footer .driver-popover-btn-disabled {
+  opacity: 0.5 !important;
+}
+
 /* Bell shake when notifications not enabled */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

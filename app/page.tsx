@@ -1,19 +1,78 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { signOut } from "next-auth/react";
 import { useSwipeable } from "react-swipeable";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import EditModal from "@/components/EditModal";
 import AddCategoryModal from "@/components/AddCategoryModal";
 import EditCategoryModal from "@/components/EditCategoryModal";
 import AddLentEntryModal from "@/components/AddLentEntryModal";
 import EditLentEntryModal from "@/components/EditLentEntryModal";
 import AISummaryModal from "@/components/AISummaryModal";
+import ConfirmModal from "@/components/ConfirmModal";
+import SpotlightModal from "@/components/SpotlightModal";
 import Toggle from "@/components/Toggle";
 import Accordion from "@/components/Accordion";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { formatCurrency } from "@/lib/currency";
 import type { AppData, PortfolioCategory, JointCategory, LentEntry } from "@/types/portfolio";
+
+const SPOTLIGHT_KEYS = {
+  portfolio: "wealth-ledger-spotlight-portfolio-seen",
+  bookkeeping: "wealth-ledger-spotlight-bookkeeping-seen",
+  joint: "wealth-ledger-spotlight-joint-seen",
+} as const;
+
+function getSpotlightSeen(key: keyof typeof SPOTLIGHT_KEYS): boolean {
+  if (typeof window === "undefined") return true;
+  return localStorage.getItem(SPOTLIGHT_KEYS[key]) === "true";
+}
+
+function setSpotlightSeen(key: keyof typeof SPOTLIGHT_KEYS) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SPOTLIGHT_KEYS[key], "true");
+}
+
+function SortableCategoryWrapper({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+      {children}
+    </div>
+  );
+}
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<"portfolio" | "bank" | "joint">("portfolio");
@@ -22,6 +81,9 @@ export default function Home() {
   const [includeJointInPortfolio, setIncludeJointInPortfolio] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
+  const [spotlightTab, setSpotlightTab] = useState<"portfolio" | "bookkeeping" | "joint" | null>(null);
+  const [portfolioIntroDone, setPortfolioIntroDone] = useState(false);
+  const driverRef = useRef<ReturnType<typeof driver> | null>(null);
   
   const [aiSummaryModal, setAiSummaryModal] = useState({
     isOpen: false,
@@ -32,6 +94,112 @@ export default function Home() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Show portfolio spotlight on first visit (when landing on Wealth Ledger / Portfolio)
+  useEffect(() => {
+    if (loading || !data || activeTab !== "portfolio") return;
+    if (!getSpotlightSeen("portfolio")) setSpotlightTab("portfolio");
+  }, [loading, data, activeTab]);
+
+  // Show Book Keeping or Joint Accounts spotlight when user switches to that tab (only if no other spotlight is open)
+  useEffect(() => {
+    if (spotlightTab !== null) return;
+    if (activeTab === "bank" && !getSpotlightSeen("bookkeeping")) setSpotlightTab("bookkeeping");
+    if (activeTab === "joint" && !getSpotlightSeen("joint")) setSpotlightTab("joint");
+  }, [activeTab, spotlightTab]);
+
+  // Run driver.js spotlight when tab is set (for bookkeeping/joint immediately; for portfolio after intro modal is dismissed)
+  useEffect(() => {
+    const tab = spotlightTab;
+    const runForPortfolio = tab === "portfolio" && portfolioIntroDone;
+    const runForOther = tab === "bookkeeping" || tab === "joint";
+    if (!runForPortfolio && !runForOther) return;
+
+    const steps = (() => {
+      if (tab === "portfolio") {
+        return [
+          {
+            element: "#wealth-ledger-tab-portfolio",
+            popover: {
+              title: "Portfolio",
+              description:
+                "Add your assets (stocks, funds, property, etc.) and see your total portfolio value. You can toggle to include joint accounts in the total.",
+              side: "bottom" as const,
+              align: "center" as const,
+              showButtons: ["close" as const],
+              doneBtnText: "Got it",
+            },
+          },
+        ];
+      }
+      if (tab === "bookkeeping") {
+        return [
+          {
+            element: "#wealth-ledger-tab-bookkeeping",
+            popover: {
+              title: "Book Keeping",
+              description:
+                "Track your bank balance and money lent out. Savings Account is your current bank balance; Money Lent Out lets you add categories and entries. The top total is Cash & Receivables (bank + lent).",
+              side: "bottom" as const,
+              align: "center" as const,
+              showButtons: ["close" as const],
+              doneBtnText: "Got it",
+            },
+          },
+        ];
+      }
+      if (tab === "joint") {
+        return [
+          {
+            element: "#wealth-ledger-tab-joint",
+            popover: {
+              title: "Joint Accounts",
+              description:
+                "Track shared accounts (e.g. with spouse or family). Add categories with amounts. You can include joint totals in your Portfolio view using the toggle on the Portfolio tab.",
+              side: "bottom" as const,
+              align: "center" as const,
+              showButtons: ["close" as const],
+              doneBtnText: "Got it",
+            },
+          },
+        ];
+      }
+      return [];
+    })();
+
+    if (steps.length === 0) return;
+
+    const driverObj = driver({
+      showProgress: false,
+      animate: true,
+      allowClose: true,
+      overlayOpacity: 0.6,
+      steps,
+      onDestroyed: () => {
+        if (tab) {
+          setSpotlightSeen(tab);
+          setSpotlightTab(null);
+        }
+        setPortfolioIntroDone(false);
+        driverRef.current = null;
+      },
+    });
+    driverRef.current = driverObj;
+    const t = setTimeout(() => driverObj.drive(), 50);
+    return () => {
+      clearTimeout(t);
+      if (driverRef.current?.isActive()) driverRef.current.destroy();
+    };
+  }, [spotlightTab, portfolioIntroDone]);
+
+  const handleDismissSpotlight = () => {
+    if (spotlightTab === "portfolio") {
+      setPortfolioIntroDone(true);
+    } else if (spotlightTab) {
+      setSpotlightSeen(spotlightTab);
+      setSpotlightTab(null);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -79,6 +247,12 @@ export default function Home() {
     entry: null,
   });
 
+  const [deleteLentCategoryModal, setDeleteLentCategoryModal] = useState<{
+    isOpen: boolean;
+    categoryId: string;
+    categoryName: string;
+  }>({ isOpen: false, categoryId: "", categoryName: "" });
+
   const calculateTotalPortfolio = () => {
     if (!data) return 0;
     const categoriesTotal = data.portfolioCategories.reduce((sum, cat) => sum + cat.amount, 0);
@@ -95,8 +269,13 @@ export default function Home() {
   };
 
   const calculateBankBalance = () => {
-    const totalLent = calculateTotalLent();
-    return (data?.savingsAccount || 0) + totalLent;
+    return data?.savingsAccount ?? 0;
+  };
+
+  /** Book Keeping total: bank balance (savings) + money lent out */
+  const calculateCashAndReceivables = () => {
+    if (!data) return 0;
+    return data.savingsAccount + calculateTotalLent();
   };
 
   const calculateTotalLent = () => {
@@ -290,6 +469,25 @@ export default function Home() {
     }
   };
 
+  const handleDeleteLentCategory = async () => {
+    if (!deleteLentCategoryModal.categoryId) return;
+    setIsMutating(true);
+    try {
+      const response = await fetch("/api/lent/categories", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteLentCategoryModal.categoryId }),
+      });
+      const result = await response.json();
+      setData(result);
+      setDeleteLentCategoryModal({ isOpen: false, categoryId: "", categoryName: "" });
+    } catch (error) {
+      console.error("Failed to delete lent category:", error);
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
   const handleGetAISummary = async () => {
     setIsMutating(true);
     try {
@@ -311,6 +509,47 @@ export default function Home() {
     } finally {
       setIsMutating(false);
     }
+  };
+
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handlePortfolioDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !data) return;
+    const oldIndex = data.portfolioCategories.findIndex((c) => c.id === active.id);
+    const newIndex = data.portfolioCategories.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setData({
+      ...data,
+      portfolioCategories: arrayMove(data.portfolioCategories, oldIndex, newIndex),
+    });
+  };
+
+  const handleLentDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !data) return;
+    const oldIndex = data.lentCategories.findIndex((c) => c.id === active.id);
+    const newIndex = data.lentCategories.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setData({
+      ...data,
+      lentCategories: arrayMove(data.lentCategories, oldIndex, newIndex),
+    });
+  };
+
+  const handleJointDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !data) return;
+    const oldIndex = data.jointCategories.findIndex((c) => c.id === active.id);
+    const newIndex = data.jointCategories.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    setData({
+      ...data,
+      jointCategories: arrayMove(data.jointCategories, oldIndex, newIndex),
+    });
   };
 
   // Swipe handlers for tabs
@@ -369,7 +608,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4">
         {/* Page Header with AI Summary */}
         <div className="flex items-center justify-between py-6">
-          <h1 className="text-3xl font-bold text-black tracking-tight">Balance Tracker</h1>
+          <h1 className="text-3xl font-bold text-black tracking-tight">Wealth Ledger</h1>
           <button
             onClick={handleGetAISummary}
             className="btn-primary px-4 py-2 rounded-lg flex items-center gap-2 text-sm"
@@ -385,6 +624,7 @@ export default function Home() {
         <div className="bg-white border-b border-gray-200 sticky top-16 lg:top-0 z-10 -mx-4 px-4">
         <div className="grid grid-cols-3">
           <button
+            id="wealth-ledger-tab-portfolio"
             onClick={() => setActiveTab("portfolio")}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "portfolio"
@@ -395,6 +635,7 @@ export default function Home() {
             Portfolio
           </button>
           <button
+            id="wealth-ledger-tab-bookkeeping"
             onClick={() => setActiveTab("bank")}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "bank"
@@ -402,9 +643,10 @@ export default function Home() {
                 : "border-transparent text-gray-500 hover:text-gray-900"
             }`}
           >
-            Bank Balance
+            Book Keeping
           </button>
           <button
+            id="wealth-ledger-tab-joint"
             onClick={() => setActiveTab("joint")}
             className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
               activeTab === "joint"
@@ -439,46 +681,58 @@ export default function Home() {
 
             {/* Portfolio Categories */}
             <div className="card divide-y divide-gray-200">
-              {data.portfolioCategories.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors"
-                  onClick={() =>
-                    setEditCategoryModal({
-                      isOpen: true,
-                      type: "portfolio",
-                      category,
-                    })
-                  }
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handlePortfolioDragEnd}
+              >
+                <SortableContext
+                  items={data.portfolioCategories.map((c) => c.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <div>
-                    <p className="font-medium text-black">{category.name}</p>
-                    {category.isLiquid && (
-                      <span className="badge-success text-xs px-2 py-0.5 rounded-md">
-                        Liquid
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-semibold text-gray-900">
-                      {formatCurrency(category.amount)}
-                    </p>
-                    <svg
-                      className="w-5 h-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              ))}
+                  {data.portfolioCategories.map((category) => (
+                    <SortableCategoryWrapper key={category.id} id={category.id}>
+                      <div
+                        className="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors"
+                        onClick={() =>
+                          setEditCategoryModal({
+                            isOpen: true,
+                            type: "portfolio",
+                            category,
+                          })
+                        }
+                      >
+                        <div>
+                          <p className="font-medium text-black">{category.name}</p>
+                          {category.isLiquid && (
+                            <span className="badge-success text-xs px-2 py-0.5 rounded-md">
+                              Liquid
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-lg font-semibold text-gray-900">
+                            {formatCurrency(category.amount)}
+                          </p>
+                          <svg
+                            className="w-5 h-5 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    </SortableCategoryWrapper>
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
 
             {/* Joint Categories (if toggle is on) */}
@@ -516,13 +770,14 @@ export default function Home() {
           </div>
         )}
 
-        {/* Bank Balance Tab */}
+        {/* Book Keeping Tab */}
         {activeTab === "bank" && (
           <div className={`space-y-4 ${swipeDirection === "left" ? "slide-in-right" : swipeDirection === "right" ? "slide-in-left" : ""}`}>
-            {/* Total Card */}
+            {/* Total Card: bank balance + money lent out */}
             <div className="card p-6 bg-green-50 border-green-200">
-              <p className="text-sm opacity-90 mb-1">Total Bank Balance</p>
-              <p className="text-4xl font-bold">{formatCurrency(calculateBankBalance())}</p>
+              <p className="text-sm opacity-90 mb-1">Cash & Receivables</p>
+              <p className="text-4xl font-bold">{formatCurrency(calculateCashAndReceivables())}</p>
+              <p className="text-xs text-gray-600 mt-1">Bank balance + money lent out</p>
             </div>
 
             {/* Savings Account Balance */}
@@ -553,15 +808,44 @@ export default function Home() {
               <h3 className="font-semibold text-black mb-3">
                 Money Lent Out ({formatCurrency(calculateTotalLent())})
               </h3>
-              <div className="space-y-1">
-                {data.lentCategories.map((category) => {
-                  const categoryTotal = category.entries.reduce((sum, entry) => sum + entry.amount, 0);
-                  return (
-                    <Accordion
-                      key={category.id}
-                      title={category.name}
-                      badge={formatCurrency(categoryTotal)}
-                      defaultOpen={false}
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleLentDragEnd}
+              >
+                <SortableContext
+                  items={data.lentCategories.map((c) => c.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-1">
+                    {data.lentCategories.map((category) => {
+                      const categoryTotal = category.entries.reduce((sum, entry) => sum + entry.amount, 0);
+                      return (
+                        <SortableCategoryWrapper key={category.id} id={category.id}>
+                          <Accordion
+                            title={category.name}
+                            badge={formatCurrency(categoryTotal)}
+                            defaultOpen={false}
+                            actions={
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteLentCategoryModal({
+                              isOpen: true,
+                              categoryId: category.id,
+                              categoryName: category.name,
+                            });
+                          }}
+                          className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                          title="Delete category"
+                          aria-label="Delete category"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                          </svg>
+                        </button>
+                      }
                     >
                       <div className="space-y-2">
                         {category.entries.map((entry) => (
@@ -597,10 +881,13 @@ export default function Home() {
                           + Add Entry
                         </button>
                       </div>
-                    </Accordion>
-                  );
-                })}
-              </div>
+                          </Accordion>
+                        </SortableCategoryWrapper>
+                      );
+                    })}
+                  </div>
+                </SortableContext>
+              </DndContext>
               <button
                 onClick={() => setAddCategoryModal({ isOpen: true, type: "lent" })}
                 className="w-full mt-4 py-2 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-green-600 hover:text-green-600 transition-colors text-sm font-medium"
@@ -622,41 +909,53 @@ export default function Home() {
 
             {/* Joint Categories */}
             <div className="card divide-y divide-gray-200">
-              {data.jointCategories.map((category) => (
-                <div
-                  key={category.id}
-                  className="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors"
-                  onClick={() =>
-                    setEditCategoryModal({
-                      isOpen: true,
-                      type: "joint",
-                      category,
-                    })
-                  }
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleJointDragEnd}
+              >
+                <SortableContext
+                  items={data.jointCategories.map((c) => c.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <div>
-                    <p className="font-medium text-black">{category.name}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-semibold text-gray-900">
-                      {formatCurrency(category.amount)}
-                    </p>
-                    <svg
-                      className="w-5 h-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              ))}
+                  {data.jointCategories.map((category) => (
+                    <SortableCategoryWrapper key={category.id} id={category.id}>
+                      <div
+                        className="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors"
+                        onClick={() =>
+                          setEditCategoryModal({
+                            isOpen: true,
+                            type: "joint",
+                            category,
+                          })
+                        }
+                      >
+                        <div>
+                          <p className="font-medium text-black">{category.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-lg font-semibold text-gray-900">
+                            {formatCurrency(category.amount)}
+                          </p>
+                          <svg
+                            className="w-5 h-5 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    </SortableCategoryWrapper>
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
 
             {/* Add Category Button */}
@@ -670,11 +969,21 @@ export default function Home() {
         )}
       </div>
 
-      {/* Modals */}
+      {/* Spotlight onboarding: Wealth Ledger intro modal (portfolio only); tab highlights via driver.js */}
+      {spotlightTab === "portfolio" && !portfolioIntroDone && (
+        <SpotlightModal
+          isOpen={true}
+          onDismiss={handleDismissSpotlight}
+          title="Welcome to Wealth Ledger"
+        >
+          <p>Wealth Ledger helps you see and manage your money in one place—assets, bank balance, receivables, and shared accounts—so you stay on top of your finances without the guesswork.</p>
+        </SpotlightModal>
+      )}
+
       <EditModal
         isOpen={editSavingsModal.isOpen}
         onClose={() => setEditSavingsModal({ ...editSavingsModal, isOpen: false })}
-        title="Update Bank Balance (Savings Account)"
+        title="Update Savings Account"
         value={editSavingsModal.value}
         onSave={handleSaveSavingsAccount}
       />
@@ -723,6 +1032,16 @@ export default function Home() {
         isOpen={aiSummaryModal.isOpen}
         onClose={() => setAiSummaryModal({ isOpen: false, summary: "" })}
         summary={aiSummaryModal.summary}
+      />
+
+      <ConfirmModal
+        isOpen={deleteLentCategoryModal.isOpen}
+        onClose={() => setDeleteLentCategoryModal({ isOpen: false, categoryId: "", categoryName: "" })}
+        title="Delete lent category"
+        message={`Delete "${deleteLentCategoryModal.categoryName}" and all its entries? This cannot be undone.`}
+        confirmLabel="Delete"
+        variant="danger"
+        onConfirm={handleDeleteLentCategory}
       />
 
       {isMutating && <LoadingOverlay />}

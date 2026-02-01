@@ -1,6 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import AddMissionModal from "./AddMissionModal";
 import EditMissionModal from "./EditMissionModal";
 import SetReminderModal from "./SetReminderModal";
@@ -29,6 +46,28 @@ interface Template {
     description?: string;
     setReminderOnDueDate: boolean;
   }[];
+}
+
+function SortableTaskWrapper({
+  id,
+  children,
+}: {
+  id: number;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing">
+      {children}
+    </div>
+  );
 }
 
 export default function MonthlyMissions() {
@@ -334,6 +373,25 @@ export default function MonthlyMissions() {
     });
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setTasks((prev) => {
+      const filtered = hideCompleted ? prev.filter((t) => !t.completed) : [...prev];
+      const oldIndex = filtered.findIndex((t) => t.id === active.id);
+      const newIndex = filtered.findIndex((t) => t.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return prev;
+      const reorderedFiltered = arrayMove(filtered, oldIndex, newIndex);
+      const hidden = hideCompleted ? prev.filter((t) => t.completed) : [];
+      return [...reorderedFiltered, ...hidden];
+    });
+  };
+
   const completedCount = tasks.filter((t) => t.completed).length;
   const progressPercent = tasks.length === 0 ? 0 : Math.round((completedCount / tasks.length) * 100);
   const hasNoTasks = tasks.length === 0;
@@ -414,6 +472,7 @@ export default function MonthlyMissions() {
       {/* Action Buttons */}
       <div className="mb-6">
         <button
+          id="wealth-ledger-add-task"
           onClick={() => setAddModalOpen(true)}
           className="btn-primary w-full py-3 rounded-lg flex items-center justify-center gap-2"
         >
@@ -431,7 +490,7 @@ export default function MonthlyMissions() {
               d="M12 4.5v15m7.5-7.5h-15"
             />
           </svg>
-          Add Mission
+          Add Task
         </button>
       </div>
 
@@ -453,12 +512,13 @@ export default function MonthlyMissions() {
             />
           </svg>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No missions for this month
+            No tasks for this month
           </h3>
           <p className="text-sm text-gray-600 mb-6">
-            Start by adding a mission or add tasks from a template
+            Start by adding a task or load tasks from a template
           </p>
           <button
+            id="wealth-ledger-load-from-template-empty"
             onClick={() => setAddFromTemplateOpen(true)}
             className="btn-primary py-2 px-4 rounded-lg inline-flex items-center gap-2"
           >
@@ -510,11 +570,20 @@ export default function MonthlyMissions() {
       ) : (
         <>
           {/* Tasks List */}
-          <div className="space-y-3">
-            {filteredTasks.map((task) => (
-              <div
-                key={task.id}
-                className={`card p-4 border-l-4 ${
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={filteredTasks.map((t) => t.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {filteredTasks.map((task) => (
+                  <SortableTaskWrapper key={task.id} id={task.id}>
+                    <div
+                      className={`card p-4 border-l-4 ${
                   task.completed
                     ? "border-l-green-600"
                     : task.overdue
@@ -666,8 +735,11 @@ export default function MonthlyMissions() {
                   </button>
                 </div>
               </div>
-            ))}
-          </div>
+                  </SortableTaskWrapper>
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {/* Show All Button */}
           {hideCompleted && completedCount > 0 && (
@@ -680,8 +752,9 @@ export default function MonthlyMissions() {
             </button>
           )}
 
-          {/* Load Tasks from Template */}
+          {/* Load Tasks from Template (when list has tasks) */}
           <button
+            id="wealth-ledger-load-from-template-list"
             onClick={() => setAddFromTemplateOpen(true)}
             className="w-full mt-4 py-2.5 border border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:border-gray-400 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           >

@@ -32,6 +32,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Category not found" }, { status: 404 });
     }
 
+    // Subtract lent amount from bank balance (savings account)
+    const savings = await prisma.savingsAccount.findUnique({ where: { userId } });
+    const currentSavings = Number(savings?.amount ?? 0);
+    const newSavings = Math.max(0, currentSavings - amount);
+    await prisma.savingsAccount.upsert({
+      where: { userId },
+      update: { amount: newSavings },
+      create: { userId, amount: newSavings },
+    });
+
     await prisma.lentEntry.create({
       data: {
         categoryId: parseInt(categoryId),
@@ -83,6 +93,18 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
 
+    // Update savings: amount change = newAmount - oldAmount (positive = more lent = subtract from savings)
+    const oldAmount = Number(entry.amount);
+    const delta = amount - oldAmount;
+    const savings = await prisma.savingsAccount.findUnique({ where: { userId } });
+    const currentSavings = Number(savings?.amount ?? 0);
+    const newSavings = Math.max(0, currentSavings - delta);
+    await prisma.savingsAccount.upsert({
+      where: { userId },
+      update: { amount: newSavings },
+      create: { userId, amount: newSavings },
+    });
+
     await prisma.lentEntry.update({
       where: { id: parseInt(id) },
       data: {
@@ -133,6 +155,17 @@ export async function DELETE(request: Request) {
     if (!entry) {
       return NextResponse.json({ error: "Entry not found" }, { status: 404 });
     }
+
+    // Add lent amount back to savings (money no longer lent out)
+    const entryAmount = Number(entry.amount);
+    const savings = await prisma.savingsAccount.findUnique({ where: { userId } });
+    const currentSavings = Number(savings?.amount ?? 0);
+    const newSavings = currentSavings + entryAmount;
+    await prisma.savingsAccount.upsert({
+      where: { userId },
+      update: { amount: newSavings },
+      create: { userId, amount: newSavings },
+    });
 
     await prisma.lentEntry.delete({
       where: { id: parseInt(id) },

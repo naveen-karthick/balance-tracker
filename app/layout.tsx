@@ -40,15 +40,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>LifeOS - Your Personal Command Center</title>
-        <meta name="description" content="Manage your finances, tasks, and life in one place" />
+        <title>Wealth Ledger - Portfolio, Book Keeping & Joint Accounts</title>
+        <meta name="description" content="Track your portfolio, bank balance, money lent out, and joint accounts in one place" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#ffffff" />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="LifeOS" />
+        <meta name="apple-mobile-web-app-title" content="Wealth Ledger" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

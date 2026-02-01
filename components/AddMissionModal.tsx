@@ -63,7 +63,7 @@ export default function AddMissionModal({ isOpen, onClose, onAdd }: AddMissionMo
                   {/* Header */}
                   <div className="border-b border-gray-200 px-6 py-4">
                     <Dialog.Title className="text-lg font-semibold text-gray-900">
-                      Add New Mission
+                      Add New Task
                     </Dialog.Title>
                   </div>
 
@@ -71,7 +71,7 @@ export default function AddMissionModal({ isOpen, onClose, onAdd }: AddMissionMo
                   <div className="px-6 py-4 space-y-4">
                     <div>
                       <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                        Mission Title *
+                        Task Title *
                       </label>
                       <input
                         type="text"
@@ -136,7 +136,7 @@ export default function AddMissionModal({ isOpen, onClose, onAdd }: AddMissionMo
                       type="submit"
                       className="btn-primary flex-1 py-2 rounded-lg"
                     >
-                      Add Mission
+                      Add Task
                     </button>
                   </div>
                 </form>
