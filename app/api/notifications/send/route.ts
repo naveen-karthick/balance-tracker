@@ -12,15 +12,16 @@ function getVapidPrivateKey(): string {
   try {
     const decoded = Buffer.from(raw, "base64url");
     if (decoded.length !== 32) {
-      // Safe debug: only lengths, never the actual key
+      // Valid base64url for 32 bytes = 43 characters. Raw length 42 = missing 1 char (e.g. on deploy env).
       console.error(
         "[VAPID] Private key decoded length is",
         decoded.length,
         "(expected 32). Raw string length:",
-        raw.length
+        raw.length,
+        "(expected 43)"
       );
       throw new Error(
-        `VAPID private key must decode to 32 bytes (got ${decoded.length}). Check for extra spaces, newlines, or wrong key.`
+        `VAPID private key invalid: decoded ${decoded.length} bytes (expected 32), raw length ${raw.length} (expected 43). On deploy, re-paste the full key in env—no spaces/newlines, all 43 chars.`
       );
     }
     return raw;

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { requestNotificationPermission, getSubscription } from "@/lib/notifications";
+import { requestNotificationPermission, getSubscription, unsubscribe } from "@/lib/notifications";
 
 export default function NotificationPrompt() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -68,6 +69,27 @@ export default function NotificationPrompt() {
     }
   };
 
+  const handleResetNotifications = async () => {
+    setResetLoading(true);
+    try {
+      const sub = await getSubscription();
+      if (sub?.endpoint) {
+        await fetch('/api/notifications/unsubscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+      }
+      await unsubscribe();
+      setIsSubscribed(false);
+    } catch (error) {
+      console.error('Failed to reset notifications:', error);
+      alert(`Failed to reset: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   if (permission === 'granted' && isSubscribed) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
@@ -78,12 +100,23 @@ export default function NotificationPrompt() {
             </svg>
             <span className="text-sm font-medium text-green-900">Notifications enabled</span>
           </div>
-          <button
-            onClick={handleTestNotification}
-            className="text-xs text-green-700 hover:text-green-800 underline"
-          >
-            Test
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleTestNotification}
+              disabled={resetLoading}
+              className="text-xs text-green-700 hover:text-green-800 underline disabled:opacity-50"
+            >
+              Test
+            </button>
+            <span className="text-green-600">·</span>
+            <button
+              onClick={handleResetNotifications}
+              disabled={resetLoading}
+              className="text-xs text-green-700 hover:text-green-800 underline disabled:opacity-50"
+            >
+              {resetLoading ? 'Resetting...' : 'Reset'}
+            </button>
+          </div>
         </div>
       </div>
     );
