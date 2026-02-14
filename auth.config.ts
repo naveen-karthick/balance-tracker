@@ -11,8 +11,11 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const pathname = nextUrl.pathname;
 
-      // Public routes
-      const isPublicRoute = pathname.startsWith("/login") || pathname.startsWith("/register");
+      // Public routes (no auth required)
+      const isPublicRoute =
+        pathname.startsWith("/login") ||
+        pathname.startsWith("/register") ||
+        pathname.startsWith("/gopika-please-be-my-valentine");
       const isAuthAPI = pathname.startsWith("/api/auth");
 
       if (isPublicRoute || isAuthAPI) {

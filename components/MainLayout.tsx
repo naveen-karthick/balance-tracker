@@ -10,7 +10,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   // Public routes that don't need the sidebar
-  const publicRoutes = ["/login", "/register"];
+  const publicRoutes = ["/login", "/register", "/gopika-please-be-my-valentine"];
   const isPublicRoute = publicRoutes.includes(pathname);
 
   // Show loading state
