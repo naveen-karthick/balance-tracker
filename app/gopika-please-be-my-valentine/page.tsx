@@ -11,28 +11,30 @@ export default function GopikaValentinePage() {
     setNoCount(noCount + 1);
   };
 
-  const getNoButtonText = () => {
-    const phrases = [
-      "No",
-      "Are you sure?",
-      "What if I asked really nicely?",
-      "Pretty please",
-      "With a chocolate rice cake on top",
-      "What about a matcha frostie",
-      "PLEASE GOPIKA",
-      "But :*(",
-      "I am going to die",
-      "Yep im dead",
-      "ok ur talking to nathan's ghost",
-      "please babe",
-      ":((((",
-      "PRETTY PLEASE",
-      "Estoy muerto",
-      "No :(",
-    ];
+  const phrases = [
+    "No",
+    "Are you sure?",
+    "What if I asked really nicely?",
+    "Pretty please",
+    "With a chocolate rice cake on top",
+    "What about a matcha frostie",
+    "PLEASE GOPIKA",
+    "But :*(",
+    "I am going to die",
+    "Yep im dead",
+    "ok ur talking to Naveen's ghost",
+    "please babe",
+    ":((((",
+    "PRETTY PLEASE",
+    "Estoy muerto",
+    "No :(",
+  ];
 
+  const getNoButtonText = () => {
     return phrases[Math.min(noCount, phrases.length - 1)];
   };
+
+  const isLastNo = noCount >= phrases.length - 1;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-rose-100 to-pink-200 p-4">
@@ -65,13 +67,20 @@ export default function GopikaValentinePage() {
             >
               Yes
             </button>
-            <button
-              onClick={handleNoClick}
-              className="rounded-lg bg-red-500 px-6 py-3 font-bold text-white hover:bg-red-600 active:scale-95 transition-all shadow-md min-w-[120px]"
-            >
-              {noCount === 0 ? "No" : getNoButtonText()}
-            </button>
+            {!isLastNo && (
+              <button
+                onClick={handleNoClick}
+                className="rounded-lg bg-red-500 px-6 py-3 font-bold text-white hover:bg-red-600 active:scale-95 transition-all shadow-md min-w-[120px]"
+              >
+                {noCount === 0 ? "No" : getNoButtonText()}
+              </button>
+            )}
           </div>
+          {isLastNo && (
+            <p className="mt-4 text-lg text-rose-700 font-medium">
+              you ran out of options now :p
+            </p>
+          )}
         </>
       )}
     </div>
