@@ -6,6 +6,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(clients.claim());
 });
 
+// Fetch handler required for PWA installability (page must be controlled by SW)
+self.addEventListener('fetch', () => {});
+
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {
     title: 'LifeOS',
