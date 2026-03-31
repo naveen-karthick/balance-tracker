@@ -290,6 +290,29 @@ export default function Home() {
     return data.jointCategories.reduce((sum, cat) => sum + cat.amount, 0);
   };
 
+  const calculateCategoryBalance = (categoryName: string) => {
+    if (!data) return 0;
+    const category = data.lentCategories.find(
+      (cat) => cat.name.toLowerCase() === categoryName.toLowerCase()
+    );
+    if (!category) return 0;
+    return category.entries.reduce((sum, entry) => sum + entry.amount, 0);
+  };
+
+  const generateWhatsAppLink = () => {
+    const familyBalance = calculateCategoryBalance("Family");
+    const manojBalance = calculateCategoryBalance("Manoj");
+    
+    // Format the text for WhatsApp
+    const text = `General Balance : ${formatCurrency(familyBalance)}\nManoj Balance : ${formatCurrency(manojBalance)}`;
+    
+    // Encode the text for URL
+    const encodedText = encodeURIComponent(text);
+    const whatsappUrl = `https://api.whatsapp.com/send/?phone=918667649058&text=${encodedText}&type=phone_number&app_absent=0`;
+    
+    return whatsappUrl;
+  };
+
   const handleSaveSavingsAccount = async (newValue: number) => {
     setIsMutating(true);
     try {
@@ -787,14 +810,31 @@ export default function Home() {
                   <h3 className="font-semibold text-black">Savings Account</h3>
                   <p className="text-xs text-gray-500 mt-0.5">Your current bank balance</p>
                 </div>
-                <button
-                  onClick={() =>
-                    setEditSavingsModal({ isOpen: true, value: data.savingsAccount })
-                  }
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  Update Balance
-                </button>
+                <div className="flex gap-2">
+                  <a
+                    href={generateWhatsAppLink()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-1"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-4.946 1.23l-.355.192-3.674-.965.985 3.601-.233.362a9.9 9.9 0 00-1.512 5.471c0 5.476 4.441 9.926 9.906 9.926 2.662 0 5.165-.994 7.287-2.8l.323-.243 3.761.98-.997-3.636.231-.362a9.9 9.9 0 001.511-5.471c0-5.476-4.44-9.926-9.906-9.926z"/>
+                    </svg>
+                    WhatsApp
+                  </a>
+                  <button
+                    onClick={() =>
+                      setEditSavingsModal({ isOpen: true, value: data.savingsAccount })
+                    }
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                  >
+                    Update Balance
+                  </button>
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-3xl font-bold text-gray-900">
