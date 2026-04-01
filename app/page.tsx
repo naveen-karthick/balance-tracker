@@ -253,6 +253,37 @@ export default function Home() {
     categoryName: string;
   }>({ isOpen: false, categoryId: "", categoryName: "" });
 
+  /** Frontend-only: per lent entry, original amount before tracked adds and each add-on */
+  const [lentEntryAddHistory, setLentEntryAddHistory] = useState<
+    Record<string, { original: number; additions: number[] }>
+  >({});
+
+  const findLentEntryById = (entryId: string): LentEntry | undefined => {
+    if (!data) return undefined;
+    for (const cat of data.lentCategories) {
+      const found = cat.entries.find((e) => e.id === entryId);
+      if (found) return found;
+    }
+    return undefined;
+  };
+
+  // Drop history for entries that no longer exist (deleted entry/category)
+  useEffect(() => {
+    if (!data) return;
+    const ids = new Set(data.lentCategories.flatMap((c) => c.entries.map((e) => e.id)));
+    setLentEntryAddHistory((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const k of Object.keys(next)) {
+        if (!ids.has(k)) {
+          delete next[k];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [data]);
+
   const calculateTotalPortfolio = () => {
     if (!data) return 0;
     const categoriesTotal = data.portfolioCategories.reduce((sum, cat) => sum + cat.amount, 0);
@@ -312,6 +343,41 @@ export default function Home() {
     
     return whatsappUrl;
   };
+
+  /** WhatsApp text with base + each add => total for Family (General) and Manoj lent categories */
+  const generateLentAddsWhatsAppLink = () => {
+    const buildLine = (categoryName: string, label: string) => {
+      const category = data?.lentCategories.find(
+        (c) => c.name.toLowerCase() === categoryName.toLowerCase()
+      );
+      if (!category) return `${label} : ${formatCurrency(0)}`;
+
+      let baseSum = 0;
+      const addParts: number[] = [];
+      for (const e of category.entries) {
+        const h = lentEntryAddHistory[e.id];
+        if (h && h.additions.length > 0) {
+          baseSum += h.original;
+          addParts.push(...h.additions);
+        } else {
+          baseSum += e.amount;
+        }
+      }
+
+      const total = calculateCategoryBalance(categoryName);
+      if (addParts.length === 0) {
+        return `${label} : ${formatCurrency(total)}`;
+      }
+      const addsStr = addParts.map((a) => formatCurrency(a)).join(" + ");
+      return `${label} : ${formatCurrency(baseSum)} + ${addsStr} => ${formatCurrency(total)}`;
+    };
+
+    const text = `${buildLine("Family", "General Balance")}\n${buildLine("Manoj", "Manoj Balance")}`;
+    const encodedText = encodeURIComponent(text);
+    return `https://api.whatsapp.com/send/?phone=918667649058&text=${encodedText}&type=phone_number&app_absent=0`;
+  };
+
+  const hasLentAddsTracked = Object.values(lentEntryAddHistory).some((h) => h.additions.length > 0);
 
   const handleSaveSavingsAccount = async (newValue: number) => {
     setIsMutating(true);
@@ -457,8 +523,10 @@ export default function Home() {
     name: string,
     amount: number,
     date: string,
-    notes: string
+    notes: string,
+    addMoney?: number
   ) => {
+    const entryBefore = findLentEntryById(id);
     setIsMutating(true);
     try {
       const response = await fetch("/api/lent/entries", {
@@ -468,6 +536,21 @@ export default function Home() {
       });
       const result = await response.json();
       setData(result);
+      if (response.ok && addMoney !== undefined && addMoney > 0 && entryBefore) {
+        setLentEntryAddHistory((prev) => {
+          const existing = prev[id];
+          if (existing) {
+            return {
+              ...prev,
+              [id]: { ...existing, additions: [...existing.additions, addMoney] },
+            };
+          }
+          return {
+            ...prev,
+            [id]: { original: entryBefore.amount, additions: [addMoney] },
+          };
+        });
+      }
     } catch (error) {
       console.error("Failed to edit lent entry:", error);
     } finally {
@@ -847,9 +930,28 @@ export default function Home() {
 
             {/* Money Lent */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-              <h3 className="font-semibold text-black mb-3">
-                Money Lent Out ({formatCurrency(calculateTotalLent())})
-              </h3>
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+                <h3 className="font-semibold text-black">
+                  Money Lent Out ({formatCurrency(calculateTotalLent())})
+                </h3>
+                {hasLentAddsTracked && (
+                  <a
+                    href={generateLentAddsWhatsAppLink()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium flex items-center gap-1"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-4.946 1.23l-.355.192-3.674-.965.985 3.601-.233.362a9.9 9.9 0 00-1.512 5.471c0 5.476 4.441 9.926 9.906 9.926 2.662 0 5.165-.994 7.287-2.8l.323-.243 3.761.98-.997-3.636.231-.362a9.9 9.9 0 001.511-5.471c0-5.476-4.44-9.926-9.906-9.926z" />
+                    </svg>
+                    Send WhatsApp
+                  </a>
+                )}
+              </div>
               <DndContext
                 sensors={dndSensors}
                 collisionDetection={closestCenter}

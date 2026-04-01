@@ -5,7 +5,14 @@ import { useState, useEffect } from "react";
 interface EditLentEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, name: string, amount: number, date: string, notes: string) => void;
+  onSave: (
+    id: string,
+    name: string,
+    amount: number,
+    date: string,
+    notes: string,
+    addMoney?: number
+  ) => void;
   onDelete: (id: string) => void;
   entry: {
     id: string;
@@ -25,6 +32,7 @@ export default function EditLentEntryModal({
 }: EditLentEntryModalProps) {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [addMoney, setAddMoney] = useState("");
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -32,6 +40,7 @@ export default function EditLentEntryModal({
     if (entry) {
       setName(entry.name);
       setAmount(entry.amount.toString());
+      setAddMoney("");
       setDate(entry.date);
       setNotes(entry.notes);
     }
@@ -39,7 +48,11 @@ export default function EditLentEntryModal({
 
   const handleSave = () => {
     if (entry && name && amount && date) {
-      onSave(entry.id, name, parseFloat(amount), date, notes);
+      const base = parseFloat(amount);
+      const extraRaw = parseFloat(addMoney);
+      const extra = !isNaN(extraRaw) && extraRaw > 0 ? extraRaw : 0;
+      const finalAmount = (isNaN(base) ? 0 : base) + extra;
+      onSave(entry.id, name, finalAmount, date, notes, extra > 0 ? extra : undefined);
       onClose();
     }
   };
@@ -79,6 +92,23 @@ export default function EditLentEntryModal({
               onChange={(e) => setAmount(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Add money (₹)
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={addMoney}
+              onChange={(e) => setAddMoney(e.target.value)}
+              placeholder="Optional — added to amount on Save"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter an amount and Save to increase this lent entry; each add is tracked for WhatsApp.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
