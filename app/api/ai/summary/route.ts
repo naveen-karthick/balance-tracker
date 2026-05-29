@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { auth } from "@/lib/auth";
 import { fetchPortfolioData } from "@/lib/fetchPortfolioData";
+import { fetchStockQuotes } from "@/lib/stockQuotes";
+import { getPortfolioCategoryValue, getStockSymbols } from "@/lib/portfolioValue";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -17,8 +19,18 @@ export async function POST(request: Request) {
     // Fetch user's portfolio data
     const data = await fetchPortfolioData(userId);
 
+    const stockSymbols = getStockSymbols(data.portfolioCategories);
+    const { quotes: stockQuotes } =
+      stockSymbols.length > 0 ? await fetchStockQuotes(stockSymbols) : { quotes: {} };
+
+    const getCategoryValue = (category: (typeof data.portfolioCategories)[number]) =>
+      getPortfolioCategoryValue(category, stockQuotes);
+
     // Calculate totals
-    const totalPortfolio = data.portfolioCategories.reduce((sum, cat) => sum + cat.amount, 0);
+    const totalPortfolio = data.portfolioCategories.reduce(
+      (sum, cat) => sum + getCategoryValue(cat),
+      0
+    );
     const totalJoint = data.jointCategories.reduce((sum, cat) => sum + cat.amount, 0);
     const totalLent = data.lentCategories.reduce((total, cat) => 
       total + cat.entries.reduce((sum, entry) => sum + entry.amount, 0), 0
@@ -38,8 +50,11 @@ export async function POST(request: Request) {
       includeJointInPortfolio: includeJointInPortfolio,
       portfolioCategories: data.portfolioCategories.map(cat => ({
         name: cat.name,
-        amount: cat.amount,
-        isLiquid: cat.isLiquid
+        amount: getCategoryValue(cat),
+        isLiquid: cat.isLiquid,
+        isStock: cat.isStock,
+        stockSymbol: cat.stockSymbol,
+        stockUnits: cat.stockUnits,
       })),
       lentMoney: data.lentCategories.map(cat => ({
         category: cat.name,

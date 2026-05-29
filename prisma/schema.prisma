@@ -46,14 +46,17 @@ model SavingsAccount {
 
 // Portfolio Categories (dynamic - user can add/remove)
 model PortfolioCategory {
-  id        Int      @id @default(autoincrement())
-  userId    Int      @map("user_id")
-  name      String
-  amount    Decimal  @default(0) @db.Decimal(12, 2)
-  isLiquid  Boolean  @default(false) @map("is_liquid")
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  name        String
+  amount      Decimal  @default(0) @db.Decimal(12, 2)
+  isLiquid    Boolean  @default(false) @map("is_liquid")
+  isStock     Boolean  @default(false) @map("is_stock")
+  stockSymbol String?  @map("stock_symbol")
+  stockUnits  Decimal? @db.Decimal(12, 4) @map("stock_units")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

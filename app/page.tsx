@@ -34,7 +34,9 @@ import Toggle from "@/components/Toggle";
 import Accordion from "@/components/Accordion";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { formatCurrency } from "@/lib/currency";
-import type { AppData, PortfolioCategory, JointCategory, LentEntry } from "@/types/portfolio";
+import { getPortfolioCategoryValue, getStockSymbols } from "@/lib/portfolioValue";
+import type { StockQuote } from "@/lib/stockQuotes";
+import type { AppData, PortfolioCategory, JointCategory, LentEntry, CategoryFormData } from "@/types/portfolio";
 
 const SPOTLIGHT_KEYS = {
   portfolio: "wealth-ledger-spotlight-portfolio-seen",
@@ -83,6 +85,8 @@ export default function Home() {
   const [isMutating, setIsMutating] = useState(false);
   const [spotlightTab, setSpotlightTab] = useState<"portfolio" | "bookkeeping" | "joint" | null>(null);
   const [portfolioIntroDone, setPortfolioIntroDone] = useState(false);
+  const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
+  const [stockQuotesLoading, setStockQuotesLoading] = useState(false);
   const driverRef = useRef<ReturnType<typeof driver> | null>(null);
   
   const [aiSummaryModal, setAiSummaryModal] = useState({
@@ -94,6 +98,42 @@ export default function Home() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Fetch live stock quotes for portfolio stock categories
+  useEffect(() => {
+    if (!data) return;
+
+    const symbols = getStockSymbols(data.portfolioCategories);
+    if (symbols.length === 0) {
+      setStockQuotes({});
+      return;
+    }
+
+    let cancelled = false;
+    setStockQuotesLoading(true);
+
+    fetch("/api/stock/quotes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbols }),
+    })
+      .then((response) => response.json())
+      .then((result) => {
+        if (!cancelled && result.quotes) {
+          setStockQuotes(result.quotes);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch stock quotes:", error);
+      })
+      .finally(() => {
+        if (!cancelled) setStockQuotesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data?.portfolioCategories]);
 
   // Show portfolio spotlight on first visit (when landing on Wealth Ledger / Portfolio)
   useEffect(() => {
@@ -284,9 +324,15 @@ export default function Home() {
     });
   }, [data]);
 
+  const getCategoryDisplayValue = (category: PortfolioCategory) =>
+    getPortfolioCategoryValue(category, stockQuotes);
+
   const calculateTotalPortfolio = () => {
     if (!data) return 0;
-    const categoriesTotal = data.portfolioCategories.reduce((sum, cat) => sum + cat.amount, 0);
+    const categoriesTotal = data.portfolioCategories.reduce(
+      (sum, cat) => sum + getCategoryDisplayValue(cat),
+      0
+    );
     const jointTotal = includeJointInPortfolio ? calculateTotalJoint() : 0;
     return categoriesTotal + jointTotal;
   };
@@ -295,7 +341,7 @@ export default function Home() {
     if (!data) return 0;
     const liquidCategories = data.portfolioCategories
       .filter((cat) => cat.isLiquid)
-      .reduce((sum, cat) => sum + cat.amount, 0);
+      .reduce((sum, cat) => sum + getCategoryDisplayValue(cat), 0);
     return liquidCategories;
   };
 
@@ -396,14 +442,14 @@ export default function Home() {
     }
   };
 
-  const handleAddCategory = async (name: string, amount?: number, isLiquid?: boolean) => {
+  const handleAddCategory = async (formData: CategoryFormData) => {
     setIsMutating(true);
     try {
       if (addCategoryModal.type === "portfolio") {
         const response = await fetch("/api/portfolio/categories", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, amount: amount || 0, isLiquid: isLiquid || false }),
+          body: JSON.stringify(formData),
         });
         const result = await response.json();
         setData(result);
@@ -411,7 +457,7 @@ export default function Home() {
         const response = await fetch("/api/joint/categories", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, amount: amount || 0 }),
+          body: JSON.stringify({ name: formData.name, amount: formData.amount || 0 }),
         });
         const result = await response.json();
         setData(result);
@@ -419,7 +465,7 @@ export default function Home() {
         const response = await fetch("/api/lent/categories", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name: formData.name }),
         });
         const result = await response.json();
         setData(result);
@@ -431,19 +477,14 @@ export default function Home() {
     }
   };
 
-  const handleEditCategory = async (
-    categoryId: string,
-    name: string,
-    amount: number,
-    isLiquid?: boolean
-  ) => {
+  const handleEditCategory = async (categoryId: string, formData: CategoryFormData) => {
     setIsMutating(true);
     try {
       if (editCategoryModal.type === "portfolio") {
         const response = await fetch("/api/portfolio/categories", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: categoryId, name, amount, isLiquid: isLiquid || false }),
+          body: JSON.stringify({ id: categoryId, ...formData }),
         });
         const result = await response.json();
         setData(result);
@@ -451,7 +492,7 @@ export default function Home() {
         const response = await fetch("/api/joint/categories", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: categoryId, name, amount }),
+          body: JSON.stringify({ id: categoryId, name: formData.name, amount: formData.amount }),
         });
         const result = await response.json();
         setData(result);
@@ -810,15 +851,26 @@ export default function Home() {
                       >
                         <div>
                           <p className="font-medium text-black">{category.name}</p>
-                          {category.isLiquid && (
-                            <span className="badge-success text-xs px-2 py-0.5 rounded-md">
-                              Liquid
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                            {category.isLiquid && (
+                              <span className="badge-success text-xs px-2 py-0.5 rounded-md">
+                                Liquid
+                              </span>
+                            )}
+                            {category.isStock && category.stockSymbol && category.stockUnits != null && (
+                              <span className="text-xs text-gray-500">
+                                {category.stockUnits} × {category.stockSymbol}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <p className="text-lg font-semibold text-gray-900">
-                            {formatCurrency(category.amount)}
+                            {category.isStock && stockQuotesLoading && !stockQuotes[category.stockSymbol?.toUpperCase() ?? ""] ? (
+                              <span className="text-sm text-gray-400">Loading…</span>
+                            ) : (
+                              formatCurrency(getCategoryDisplayValue(category))
+                            )}
                           </p>
                           <svg
                             className="w-5 h-5 text-gray-400"
@@ -1139,21 +1191,27 @@ export default function Home() {
         onAdd={handleAddCategory}
         showAmount={addCategoryModal.type !== "lent"}
         showLiquidToggle={addCategoryModal.type === "portfolio"}
+        showStockToggle={addCategoryModal.type === "portfolio"}
       />
 
       {editCategoryModal.isOpen && editCategoryModal.category && (
         <EditCategoryModal
+          key={editCategoryModal.category.id}
           isOpen={editCategoryModal.isOpen}
           onClose={() => setEditCategoryModal({ ...editCategoryModal, isOpen: false })}
           title={`Edit ${editCategoryModal.category.name}`}
           name={editCategoryModal.category.name}
           amount={editCategoryModal.category.amount}
           isLiquid={"isLiquid" in editCategoryModal.category ? editCategoryModal.category.isLiquid : false}
-          onSave={(name, amount, isLiquid) =>
-            handleEditCategory(editCategoryModal.category!.id, name, amount, isLiquid)
+          isStock={"isStock" in editCategoryModal.category ? editCategoryModal.category.isStock : false}
+          stockSymbol={"stockSymbol" in editCategoryModal.category ? editCategoryModal.category.stockSymbol : null}
+          stockUnits={"stockUnits" in editCategoryModal.category ? editCategoryModal.category.stockUnits : null}
+          onSave={(formData) =>
+            handleEditCategory(editCategoryModal.category!.id, formData)
           }
           onDelete={() => handleDeleteCategory(editCategoryModal.category!.id)}
           showLiquidToggle={editCategoryModal.type === "portfolio"}
+          showStockToggle={editCategoryModal.type === "portfolio"}
         />
       )}
 

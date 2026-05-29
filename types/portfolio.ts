@@ -3,6 +3,18 @@ export interface PortfolioCategory {
   name: string;
   amount: number;
   isLiquid: boolean;
+  isStock: boolean;
+  stockSymbol: string | null;
+  stockUnits: number | null;
+}
+
+export interface CategoryFormData {
+  name: string;
+  amount?: number;
+  isLiquid?: boolean;
+  isStock?: boolean;
+  stockSymbol?: string;
+  stockUnits?: number;
 }
 
 export interface LentEntry {

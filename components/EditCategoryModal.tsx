@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import type { CategoryFormData } from "@/types/portfolio";
+
 interface EditCategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -7,9 +10,13 @@ interface EditCategoryModalProps {
   name: string;
   amount: number;
   isLiquid?: boolean;
-  onSave: (name: string, amount: number, isLiquid?: boolean) => void;
+  isStock?: boolean;
+  stockSymbol?: string | null;
+  stockUnits?: number | null;
+  onSave: (data: CategoryFormData) => void;
   onDelete: () => void;
   showLiquidToggle?: boolean;
+  showStockToggle?: boolean;
 }
 
 export default function EditCategoryModal({
@@ -19,19 +26,44 @@ export default function EditCategoryModal({
   name,
   amount,
   isLiquid = false,
+  isStock: initialIsStock = false,
+  stockSymbol,
+  stockUnits,
   onSave,
   onDelete,
   showLiquidToggle = false,
+  showStockToggle = false,
 }: EditCategoryModalProps) {
+  const [isStock, setIsStock] = useState(initialIsStock);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newName = formData.get("name") as string;
-    const newAmount = parseFloat(formData.get("amount") as string);
     const newIsLiquid = showLiquidToggle ? formData.get("isLiquid") === "on" : false;
-    onSave(newName, newAmount, newIsLiquid);
+
+    if (showStockToggle && isStock) {
+      const newStockSymbol = (formData.get("stockSymbol") as string).trim();
+      const newStockUnits = parseFloat(formData.get("stockUnits") as string);
+      onSave({
+        name: newName,
+        isLiquid: newIsLiquid,
+        isStock: true,
+        stockSymbol: newStockSymbol,
+        stockUnits: newStockUnits,
+      });
+    } else {
+      const newAmount = parseFloat(formData.get("amount") as string);
+      onSave({
+        name: newName,
+        amount: newAmount,
+        isLiquid: newIsLiquid,
+        isStock: false,
+      });
+    }
+
     onClose();
   };
 
@@ -61,20 +93,85 @@ export default function EditCategoryModal({
             />
           </div>
 
-          <div className="mb-4">
-            <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
-              Amount
-            </label>
-            <input
-              type="number"
-              id="amount"
-              name="amount"
-              defaultValue={amount}
-              step="0.01"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black text-lg"
-              required
-            />
-          </div>
+          {showStockToggle && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Asset Type</label>
+              <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setIsStock(false)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    !isStock ? "bg-indigo-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Direct Value (₹)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsStock(true)}
+                  className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+                    isStock ? "bg-indigo-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  Stock
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isStock && (
+            <div className="mb-4">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-2">
+                Amount (₹)
+              </label>
+              <input
+                type="number"
+                id="amount"
+                name="amount"
+                defaultValue={amount}
+                step="0.01"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black text-lg"
+                required
+              />
+            </div>
+          )}
+
+          {showStockToggle && isStock && (
+            <>
+              <div className="mb-4">
+                <label htmlFor="stockSymbol" className="block text-sm font-medium text-gray-700 mb-2">
+                  Stock Symbol
+                </label>
+                <input
+                  type="text"
+                  id="stockSymbol"
+                  name="stockSymbol"
+                  defaultValue={stockSymbol ?? ""}
+                  placeholder="e.g. AAPL, MSFT, GOOGL"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black text-lg uppercase"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label htmlFor="stockUnits" className="block text-sm font-medium text-gray-700 mb-2">
+                  Units / Shares
+                </label>
+                <input
+                  type="number"
+                  id="stockUnits"
+                  name="stockUnits"
+                  defaultValue={stockUnits ?? ""}
+                  step="0.0001"
+                  min="0.0001"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-black text-lg"
+                  required
+                />
+              </div>
+              <p className="text-xs text-gray-500 mb-4">
+                Value is calculated live from the stock price (USD) converted to INR.
+              </p>
+            </>
+          )}
 
           {showLiquidToggle && (
             <div className="mb-4">

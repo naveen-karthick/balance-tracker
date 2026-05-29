@@ -3,6 +3,55 @@ import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { fetchPortfolioData } from "@/lib/fetchPortfolioData";
 
+function buildCategoryData(body: {
+  name: string;
+  amount?: number;
+  isLiquid?: boolean;
+  isStock?: boolean;
+  stockSymbol?: string;
+  stockUnits?: number;
+}) {
+  const { name, amount, isLiquid, isStock, stockSymbol, stockUnits } = body;
+
+  if (isStock) {
+    if (!stockSymbol?.trim() || stockUnits === undefined || stockUnits <= 0) {
+      return {
+        error: "Stock symbol and units are required for stock categories",
+        status: 400 as const,
+      };
+    }
+
+    return {
+      data: {
+        name,
+        amount: 0,
+        isLiquid: isLiquid || false,
+        isStock: true,
+        stockSymbol: stockSymbol.trim().toUpperCase(),
+        stockUnits,
+      },
+    };
+  }
+
+  if (amount === undefined) {
+    return {
+      error: "Amount is required for non-stock categories",
+      status: 400 as const,
+    };
+  }
+
+  return {
+    data: {
+      name,
+      amount,
+      isLiquid: isLiquid || false,
+      isStock: false,
+      stockSymbol: null,
+      stockUnits: null,
+    },
+  };
+}
+
 // POST - Add new portfolio category
 export async function POST(request: Request) {
   const session = await auth();
@@ -14,25 +63,27 @@ export async function POST(request: Request) {
   const userId = parseInt(session.user.id);
 
   try {
-    const { name, amount, isLiquid } = await request.json();
+    const body = await request.json();
     
-    if (!name || amount === undefined) {
+    if (!body.name) {
       return NextResponse.json(
-        { error: "Name and amount are required" },
+        { error: "Name is required" },
         { status: 400 }
       );
+    }
+
+    const result = buildCategoryData(body);
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
     await prisma.portfolioCategory.create({
       data: {
         userId,
-        name,
-        amount,
-        isLiquid: isLiquid || false,
+        ...result.data,
       },
     });
 
-    // Fetch and return updated data
     const data = await fetchPortfolioData(userId);
     return NextResponse.json(data);
   } catch (error) {
@@ -52,21 +103,26 @@ export async function PUT(request: Request) {
   const userId = parseInt(session.user.id);
 
   try {
-    const { id, name, amount, isLiquid } = await request.json();
+    const body = await request.json();
+    const { id } = body;
     
-    if (!id || !name || amount === undefined) {
+    if (!id || !body.name) {
       return NextResponse.json(
-        { error: "ID, name, and amount are required" },
+        { error: "ID and name are required" },
         { status: 400 }
       );
     }
 
+    const result = buildCategoryData(body);
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
     await prisma.portfolioCategory.updateMany({
       where: { id: parseInt(id), userId },
-      data: { name, amount, isLiquid: isLiquid || false },
+      data: result.data,
     });
 
-    // Fetch and return updated data
     const data = await fetchPortfolioData(userId);
     return NextResponse.json(data);
   } catch (error) {
@@ -99,7 +155,6 @@ export async function DELETE(request: Request) {
       where: { id: parseInt(id), userId },
     });
 
-    // Fetch and return updated data
     const data = await fetchPortfolioData(userId);
     return NextResponse.json(data);
   } catch (error) {

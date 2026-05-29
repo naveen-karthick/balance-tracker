@@ -19,6 +19,9 @@ export async function fetchPortfolioData(userId: number) {
       name: cat.name,
       amount: Number(cat.amount),
       isLiquid: cat.isLiquid,
+      isStock: cat.isStock,
+      stockSymbol: cat.stockSymbol,
+      stockUnits: cat.stockUnits != null ? Number(cat.stockUnits) : null,
     })),
     lentCategories: lentCategories.map(cat => ({
       id: cat.id.toString(),
