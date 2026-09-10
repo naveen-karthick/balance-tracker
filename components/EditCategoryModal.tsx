@@ -10,12 +10,14 @@ interface EditCategoryModalProps {
   name: string;
   amount: number;
   isLiquid?: boolean;
+  isLocked?: boolean;
   isStock?: boolean;
   stockSymbol?: string | null;
   stockUnits?: number | null;
   onSave: (data: CategoryFormData) => void;
   onDelete: () => void;
   showLiquidToggle?: boolean;
+  showLockedToggle?: boolean;
   showStockToggle?: boolean;
 }
 
@@ -26,12 +28,14 @@ export default function EditCategoryModal({
   name,
   amount,
   isLiquid = false,
+  isLocked = false,
   isStock: initialIsStock = false,
   stockSymbol,
   stockUnits,
   onSave,
   onDelete,
   showLiquidToggle = false,
+  showLockedToggle = false,
   showStockToggle = false,
 }: EditCategoryModalProps) {
   const [isStock, setIsStock] = useState(initialIsStock);
@@ -43,6 +47,7 @@ export default function EditCategoryModal({
     const formData = new FormData(e.currentTarget);
     const newName = formData.get("name") as string;
     const newIsLiquid = showLiquidToggle ? formData.get("isLiquid") === "on" : false;
+    const newIsLocked = showLockedToggle ? formData.get("isLocked") === "on" : false;
 
     if (showStockToggle && isStock) {
       const newStockSymbol = (formData.get("stockSymbol") as string).trim();
@@ -50,6 +55,7 @@ export default function EditCategoryModal({
       onSave({
         name: newName,
         isLiquid: newIsLiquid,
+        isLocked: newIsLocked,
         isStock: true,
         stockSymbol: newStockSymbol,
         stockUnits: newStockUnits,
@@ -60,6 +66,7 @@ export default function EditCategoryModal({
         name: newName,
         amount: newAmount,
         isLiquid: newIsLiquid,
+        isLocked: newIsLocked,
         isStock: false,
       });
     }
@@ -183,6 +190,20 @@ export default function EditCategoryModal({
                   className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                 />
                 <span className="text-sm font-medium text-gray-700">Mark as Liquid Asset</span>
+              </label>
+            </div>
+          )}
+
+          {showLockedToggle && (
+            <div className="mb-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="isLocked"
+                  defaultChecked={isLocked}
+                  className="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Mark as Locked Asset</span>
               </label>
             </div>
           )}

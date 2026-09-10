@@ -10,6 +10,7 @@ interface AddCategoryModalProps {
   onAdd: (data: CategoryFormData) => void;
   showAmount?: boolean;
   showLiquidToggle?: boolean;
+  showLockedToggle?: boolean;
   showStockToggle?: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function AddCategoryModal({
   onAdd,
   showAmount = true,
   showLiquidToggle = false,
+  showLockedToggle = false,
   showStockToggle = false,
 }: AddCategoryModalProps) {
   const [isStock, setIsStock] = useState(false);
@@ -31,14 +33,15 @@ export default function AddCategoryModal({
     const formData = new FormData(e.currentTarget);
     const name = formData.get("name") as string;
     const isLiquid = showLiquidToggle ? formData.get("isLiquid") === "on" : false;
+    const isLocked = showLockedToggle ? formData.get("isLocked") === "on" : false;
 
     if (showStockToggle && isStock) {
       const stockSymbol = (formData.get("stockSymbol") as string).trim();
       const stockUnits = parseFloat(formData.get("stockUnits") as string);
-      onAdd({ name, isLiquid, isStock: true, stockSymbol, stockUnits });
+      onAdd({ name, isLiquid, isLocked, isStock: true, stockSymbol, stockUnits });
     } else {
       const amount = showAmount ? parseFloat(formData.get("amount") as string) : 0;
-      onAdd({ name, amount, isLiquid, isStock: false });
+      onAdd({ name, amount, isLiquid, isLocked, isStock: false });
     }
 
     setIsStock(false);
@@ -159,6 +162,19 @@ export default function AddCategoryModal({
               <p className="text-xs text-gray-500 mt-1 ml-7">
                 Liquid assets will be included in your monthly liquid cash calculation
               </p>
+            </div>
+          )}
+
+          {showLockedToggle && (
+            <div className="mb-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name="isLocked"
+                  className="w-5 h-5 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                />
+                <span className="text-sm font-medium text-gray-700">Mark as Locked Asset</span>
+              </label>
             </div>
           )}
 

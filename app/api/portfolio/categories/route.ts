@@ -7,11 +7,12 @@ function buildCategoryData(body: {
   name: string;
   amount?: number;
   isLiquid?: boolean;
+  isLocked?: boolean;
   isStock?: boolean;
   stockSymbol?: string;
   stockUnits?: number;
 }) {
-  const { name, amount, isLiquid, isStock, stockSymbol, stockUnits } = body;
+  const { name, amount, isLiquid, isLocked, isStock, stockSymbol, stockUnits } = body;
 
   if (isStock) {
     if (!stockSymbol?.trim() || stockUnits === undefined || stockUnits <= 0) {
@@ -26,6 +27,7 @@ function buildCategoryData(body: {
         name,
         amount: 0,
         isLiquid: isLiquid || false,
+        isLocked: isLocked || false,
         isStock: true,
         stockSymbol: stockSymbol.trim().toUpperCase(),
         stockUnits,
@@ -45,6 +47,7 @@ function buildCategoryData(body: {
       name,
       amount,
       isLiquid: isLiquid || false,
+      isLocked: isLocked || false,
       isStock: false,
       stockSymbol: null,
       stockUnits: null,

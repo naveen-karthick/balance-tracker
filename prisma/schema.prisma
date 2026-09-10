@@ -51,6 +51,7 @@ model PortfolioCategory {
   name        String
   amount      Decimal  @default(0) @db.Decimal(12, 2)
   isLiquid    Boolean  @default(false) @map("is_liquid")
+  isLocked    Boolean  @default(false) @map("is_locked")
   isStock     Boolean  @default(false) @map("is_stock")
   stockSymbol String?  @map("stock_symbol")
   stockUnits  Decimal? @db.Decimal(12, 4) @map("stock_units")
@@ -63,6 +64,7 @@ model PortfolioCategory {
   @@unique([userId, name])
   @@index([userId])
   @@index([isLiquid])
+  @@index([isLocked])
   @@map("portfolio_categories")
 }
 

@@ -81,6 +81,7 @@ export default function Home() {
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [data, setData] = useState<AppData | null>(null);
   const [includeJointInPortfolio, setIncludeJointInPortfolio] = useState(false);
+  const [showLockedAssets, setShowLockedAssets] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
   const [spotlightTab, setSpotlightTab] = useState<"portfolio" | "bookkeeping" | "joint" | null>(null);
@@ -327,12 +328,19 @@ export default function Home() {
   const getCategoryDisplayValue = (category: PortfolioCategory) =>
     getPortfolioCategoryValue(category, stockQuotes);
 
+  const isCategoryVisible = (category: PortfolioCategory) =>
+    showLockedAssets || !category.isLocked;
+
+  const visiblePortfolioCategories =
+    data?.portfolioCategories.filter(isCategoryVisible) ?? [];
+
+  const hasLockedAssets = (data?.portfolioCategories.some((cat) => cat.isLocked) ?? false);
+
   const calculateTotalPortfolio = () => {
     if (!data) return 0;
-    const categoriesTotal = data.portfolioCategories.reduce(
-      (sum, cat) => sum + getCategoryDisplayValue(cat),
-      0
-    );
+    const categoriesTotal = data.portfolioCategories
+      .filter(isCategoryVisible)
+      .reduce((sum, cat) => sum + getCategoryDisplayValue(cat), 0);
     const jointTotal = includeJointInPortfolio ? calculateTotalJoint() : 0;
     return categoriesTotal + jointTotal;
   };
@@ -641,7 +649,7 @@ export default function Home() {
       const response = await fetch("/api/ai/summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ includeJointInPortfolio }),
+        body: JSON.stringify({ includeJointInPortfolio, showLockedAssets }),
       });
       const result = await response.json();
       
@@ -666,12 +674,14 @@ export default function Home() {
   const handlePortfolioDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id || !data) return;
-    const oldIndex = data.portfolioCategories.findIndex((c) => c.id === active.id);
-    const newIndex = data.portfolioCategories.findIndex((c) => c.id === over.id);
+    const visible = data.portfolioCategories.filter(isCategoryVisible);
+    const hidden = data.portfolioCategories.filter((cat) => !isCategoryVisible(cat));
+    const oldIndex = visible.findIndex((c) => c.id === active.id);
+    const newIndex = visible.findIndex((c) => c.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
     setData({
       ...data,
-      portfolioCategories: arrayMove(data.portfolioCategories, oldIndex, newIndex),
+      portfolioCategories: [...arrayMove(visible, oldIndex, newIndex), ...hidden],
     });
   };
 
@@ -813,11 +823,23 @@ export default function Home() {
           <div className={`space-y-4 ${swipeDirection === "left" ? "slide-in-right" : swipeDirection === "right" ? "slide-in-left" : ""}`}>
             {/* Total Card */}
             <div className="card p-6 bg-blue-50 border-blue-200">
-              <p className="text-sm text-blue-700 font-medium mb-1">Total Portfolio</p>
+              <div className="flex items-start justify-between gap-3 mb-1">
+                <p className="text-sm text-blue-700 font-medium">
+                  {showLockedAssets && hasLockedAssets ? "Net Worth" : "Total Portfolio"}
+                </p>
+                {hasLockedAssets && (
+                  <Toggle
+                    enabled={showLockedAssets}
+                    onChange={setShowLockedAssets}
+                    label="Locked Assets"
+                    compact
+                  />
+                )}
+              </div>
               <p className="text-4xl font-bold text-blue-900 tracking-tight">{formatCurrency(calculateTotalPortfolio())}</p>
             </div>
 
-            {/* Include Joint Toggle */}
+            {/* Include toggles */}
             <div className="flex justify-center">
               <Toggle
                 enabled={includeJointInPortfolio}
@@ -834,10 +856,10 @@ export default function Home() {
                 onDragEnd={handlePortfolioDragEnd}
               >
                 <SortableContext
-                  items={data.portfolioCategories.map((c) => c.id)}
+                  items={visiblePortfolioCategories.map((c) => c.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {data.portfolioCategories.map((category) => (
+                  {visiblePortfolioCategories.map((category) => (
                     <SortableCategoryWrapper key={category.id} id={category.id}>
                       <div
                         className="flex justify-between items-center p-4 hover:bg-gray-50 transition-colors"
@@ -855,6 +877,11 @@ export default function Home() {
                             {category.isLiquid && (
                               <span className="badge-success text-xs px-2 py-0.5 rounded-md">
                                 Liquid
+                              </span>
+                            )}
+                            {category.isLocked && (
+                              <span className="text-xs px-2 py-0.5 rounded-md bg-amber-100 text-amber-700">
+                                Locked
                               </span>
                             )}
                             {category.isStock && category.stockSymbol && category.stockUnits != null && (
@@ -1163,6 +1190,7 @@ export default function Home() {
             </button>
           </div>
         )}
+
       </div>
 
       {/* Spotlight onboarding: Wealth Ledger intro modal (portfolio only); tab highlights via driver.js */}
@@ -1191,6 +1219,7 @@ export default function Home() {
         onAdd={handleAddCategory}
         showAmount={addCategoryModal.type !== "lent"}
         showLiquidToggle={addCategoryModal.type === "portfolio"}
+        showLockedToggle={addCategoryModal.type === "portfolio"}
         showStockToggle={addCategoryModal.type === "portfolio"}
       />
 
@@ -1203,6 +1232,7 @@ export default function Home() {
           name={editCategoryModal.category.name}
           amount={editCategoryModal.category.amount}
           isLiquid={"isLiquid" in editCategoryModal.category ? editCategoryModal.category.isLiquid : false}
+          isLocked={"isLocked" in editCategoryModal.category ? editCategoryModal.category.isLocked : false}
           isStock={"isStock" in editCategoryModal.category ? editCategoryModal.category.isStock : false}
           stockSymbol={"stockSymbol" in editCategoryModal.category ? editCategoryModal.category.stockSymbol : null}
           stockUnits={"stockUnits" in editCategoryModal.category ? editCategoryModal.category.stockUnits : null}
@@ -1211,6 +1241,7 @@ export default function Home() {
           }
           onDelete={() => handleDeleteCategory(editCategoryModal.category!.id)}
           showLiquidToggle={editCategoryModal.type === "portfolio"}
+          showLockedToggle={editCategoryModal.type === "portfolio"}
           showStockToggle={editCategoryModal.type === "portfolio"}
         />
       )}
