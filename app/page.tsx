@@ -294,9 +294,9 @@ export default function Home() {
     categoryName: string;
   }>({ isOpen: false, categoryId: "", categoryName: "" });
 
-  /** Frontend-only: per lent entry, original amount before tracked adds and each add-on */
+  /** Frontend-only: per lent entry, original amount before tracked adds/subtracts */
   const [lentEntryAddHistory, setLentEntryAddHistory] = useState<
-    Record<string, { original: number; additions: number[] }>
+    Record<string, { original: number; additions: number[]; subtractions: number[] }>
   >({});
 
   const findLentEntryById = (entryId: string): LentEntry | undefined => {
@@ -398,7 +398,7 @@ export default function Home() {
     return whatsappUrl;
   };
 
-  /** WhatsApp text with base + each add => total for Family (General) and Manoj lent categories */
+  /** WhatsApp text with base + adds - subtracts => total for Family (General) and Manoj lent categories */
   const generateLentAddsWhatsAppLink = () => {
     const buildLine = (categoryName: string, label: string) => {
       const category = data?.lentCategories.find(
@@ -408,22 +408,31 @@ export default function Home() {
 
       let baseSum = 0;
       const addParts: number[] = [];
+      const subtractParts: number[] = [];
       for (const e of category.entries) {
         const h = lentEntryAddHistory[e.id];
-        if (h && h.additions.length > 0) {
+        if (h && (h.additions.length > 0 || h.subtractions.length > 0)) {
           baseSum += h.original;
           addParts.push(...h.additions);
+          subtractParts.push(...h.subtractions);
         } else {
           baseSum += e.amount;
         }
       }
 
       const total = calculateCategoryBalance(categoryName);
-      if (addParts.length === 0) {
+      if (addParts.length === 0 && subtractParts.length === 0) {
         return `${label} : ${formatCurrency(total)}`;
       }
-      const addsStr = addParts.map((a) => formatCurrency(a)).join(" + ");
-      return `${label} : ${formatCurrency(baseSum)} + ${addsStr} => ${formatCurrency(total)}`;
+      const addsStr =
+        addParts.length > 0
+          ? ` + ${addParts.map((a) => formatCurrency(a)).join(" + ")}`
+          : "";
+      const subtractsStr =
+        subtractParts.length > 0
+          ? ` - ${subtractParts.map((a) => formatCurrency(a)).join(" - ")}`
+          : "";
+      return `${label} : ${formatCurrency(baseSum)}${addsStr}${subtractsStr} => ${formatCurrency(total)}`;
     };
 
     const text = `${buildLine("Family", "General Balance")}\n${buildLine("Manoj", "Manoj Balance")}`;
@@ -431,7 +440,9 @@ export default function Home() {
     return `https://api.whatsapp.com/send/?phone=918667649058&text=${encodedText}&type=phone_number&app_absent=0`;
   };
 
-  const hasLentAddsTracked = Object.values(lentEntryAddHistory).some((h) => h.additions.length > 0);
+  const hasLentAddsTracked = Object.values(lentEntryAddHistory).some(
+    (h) => h.additions.length > 0 || h.subtractions.length > 0
+  );
 
   const handleSaveSavingsAccount = async (newValue: number) => {
     setIsMutating(true);
@@ -573,7 +584,8 @@ export default function Home() {
     amount: number,
     date: string,
     notes: string,
-    addMoney?: number
+    addMoney?: number,
+    subtractMoney?: number
   ) => {
     const entryBefore = findLentEntryById(id);
     setIsMutating(true);
@@ -585,18 +597,35 @@ export default function Home() {
       });
       const result = await response.json();
       setData(result);
-      if (response.ok && addMoney !== undefined && addMoney > 0 && entryBefore) {
+      const trackedAdd = addMoney !== undefined && addMoney > 0 ? addMoney : 0;
+      const trackedSubtract =
+        subtractMoney !== undefined && subtractMoney > 0 ? subtractMoney : 0;
+      if (response.ok && (trackedAdd > 0 || trackedSubtract > 0) && entryBefore) {
         setLentEntryAddHistory((prev) => {
           const existing = prev[id];
           if (existing) {
             return {
               ...prev,
-              [id]: { ...existing, additions: [...existing.additions, addMoney] },
+              [id]: {
+                ...existing,
+                additions:
+                  trackedAdd > 0
+                    ? [...existing.additions, trackedAdd]
+                    : existing.additions,
+                subtractions:
+                  trackedSubtract > 0
+                    ? [...existing.subtractions, trackedSubtract]
+                    : existing.subtractions,
+              },
             };
           }
           return {
             ...prev,
-            [id]: { original: entryBefore.amount, additions: [addMoney] },
+            [id]: {
+              original: entryBefore.amount,
+              additions: trackedAdd > 0 ? [trackedAdd] : [],
+              subtractions: trackedSubtract > 0 ? [trackedSubtract] : [],
+            },
           };
         });
       }

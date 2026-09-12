@@ -11,7 +11,8 @@ interface EditLentEntryModalProps {
     amount: number,
     date: string,
     notes: string,
-    addMoney?: number
+    addMoney?: number,
+    subtractMoney?: number
   ) => void;
   onDelete: (id: string) => void;
   entry: {
@@ -33,6 +34,7 @@ export default function EditLentEntryModal({
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [addMoney, setAddMoney] = useState("");
+  const [subtractMoney, setSubtractMoney] = useState("");
   const [date, setDate] = useState("");
   const [notes, setNotes] = useState("");
 
@@ -41,6 +43,7 @@ export default function EditLentEntryModal({
       setName(entry.name);
       setAmount(entry.amount.toString());
       setAddMoney("");
+      setSubtractMoney("");
       setDate(entry.date);
       setNotes(entry.notes);
     }
@@ -51,8 +54,20 @@ export default function EditLentEntryModal({
       const base = parseFloat(amount);
       const extraRaw = parseFloat(addMoney);
       const extra = !isNaN(extraRaw) && extraRaw > 0 ? extraRaw : 0;
-      const finalAmount = (isNaN(base) ? 0 : base) + extra;
-      onSave(entry.id, name, finalAmount, date, notes, extra > 0 ? extra : undefined);
+      const subtractRaw = parseFloat(subtractMoney);
+      const subtract = !isNaN(subtractRaw) && subtractRaw > 0 ? subtractRaw : 0;
+      const afterAdd = (isNaN(base) ? 0 : base) + extra;
+      const actualSubtract = Math.min(subtract, afterAdd);
+      const finalAmount = afterAdd - actualSubtract;
+      onSave(
+        entry.id,
+        name,
+        finalAmount,
+        date,
+        notes,
+        extra > 0 ? extra : undefined,
+        actualSubtract > 0 ? actualSubtract : undefined
+      );
       onClose();
     }
   };
@@ -68,7 +83,7 @@ export default function EditLentEntryModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-lg">
+      <div className="bg-white rounded-xl p-6 max-w-md w-full shadow-lg max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-4 text-black">Edit Lent Entry</h2>
         <div className="space-y-4">
           <div>
@@ -108,6 +123,23 @@ export default function EditLentEntryModal({
             />
             <p className="text-xs text-gray-500 mt-1">
               Enter an amount and Save to increase this lent entry; each add is tracked for WhatsApp.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Subtract money (₹)
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="any"
+              value={subtractMoney}
+              onChange={(e) => setSubtractMoney(e.target.value)}
+              placeholder="Optional — subtracted from amount on Save"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enter an amount and Save to decrease this lent entry; each subtract is tracked for WhatsApp. Bank balance increases by the same amount.
             </p>
           </div>
           <div>
