@@ -22,10 +22,13 @@
     "@headlessui/react": "^2.2.9",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
+    "@tanstack/react-table": "^9.2.6",
     "ai": "^6.0.64",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
     "driver.js": "^1.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "next": "^15.1.6",
     "next-auth": "^5.0.0-beta.30",
     "next-pwa": "^5.6.0",
@@ -37,7 +40,6 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "sharp": "^0.33.5",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22",
     "@types/react": "^19",
@@ -48,6 +50,7 @@
     "eslint-config-next": "^15.1.6",
     "postcss": "^8.4.49",
     "prisma": "^7.3.0",
+    "sharp": "^0.33.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }

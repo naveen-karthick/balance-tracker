@@ -15,6 +15,7 @@ export const authConfig = {
       const isPublicRoute =
         pathname.startsWith("/login") ||
         pathname.startsWith("/register") ||
+        pathname.startsWith("/gst") ||
         pathname.startsWith("/gopika-please-be-my-valentine");
       const isAuthAPI = pathname.startsWith("/api/auth");
 
