@@ -36,7 +36,7 @@ export const PRICE_LIST: PriceItem[] = [
   { code: "0044", name: "1 Inch Bush Laptop Table", usage: "1 Inch Bush Laptop Table", rate: "2.00" },
   { code: "0045", name: "Yoga Chair Gear", usage: "Yoga Chair Gear", rate: "30.00" },
   { code: "0046", name: '3/4" Square Bush', usage: "JF7015, JF5240", rate: "3.50" },
-  { code: "0051", name: "Nylon Wheel", usage: "Nylon Wheel", rate: "1.50" },
+  { code: "0051", name: "Nylon Wheel", usage: "Nylon Wheel", rate: "5.00" },
   { code: "", name: "White Gear", usage: "", rate: "10.00" },
 ];
 
