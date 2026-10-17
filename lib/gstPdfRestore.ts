@@ -284,7 +284,9 @@ async function streamText(slice: StreamSlice): Promise<string | null> {
 
 async function inflateZlib(bytes: Uint8Array): Promise<Uint8Array> {
   const stream = new DecompressionStream("deflate");
-  const decompressed = new Blob([bytes]).stream().pipeThrough(stream);
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  const decompressed = new Blob([copy]).stream().pipeThrough(stream);
   return new Uint8Array(await new Response(decompressed).arrayBuffer());
 }
 
