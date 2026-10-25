@@ -88,7 +88,9 @@ export default function Home() {
   const [portfolioIntroDone, setPortfolioIntroDone] = useState(false);
   const [stockQuotes, setStockQuotes] = useState<Record<string, StockQuote>>({});
   const [stockQuotesLoading, setStockQuotesLoading] = useState(false);
+  const [copiedShare, setCopiedShare] = useState<"balance" | "lent" | null>(null);
   const driverRef = useRef<ReturnType<typeof driver> | null>(null);
+  const copyResetRef = useRef<number | null>(null);
   
   const [aiSummaryModal, setAiSummaryModal] = useState({
     isOpen: false,
@@ -384,22 +386,21 @@ export default function Home() {
     return category.entries.reduce((sum, entry) => sum + entry.amount, 0);
   };
 
-  const generateWhatsAppLink = () => {
+  const buildBalanceShareText = () => {
     const familyBalance = calculateCategoryBalance("Family");
     const manojBalance = calculateCategoryBalance("Manoj");
-    
-    // Format the text for WhatsApp
-    const text = `General Balance : ${formatCurrency(familyBalance)}\nManoj Balance : ${formatCurrency(manojBalance)}`;
-    
-    // Encode the text for URL
-    const encodedText = encodeURIComponent(text);
-    const whatsappUrl = `https://api.whatsapp.com/send/?phone=918667649058&text=${encodedText}&type=phone_number&app_absent=0`;
-    
-    return whatsappUrl;
+    const total = familyBalance + manojBalance;
+
+    return `General Balance : ${formatCurrency(familyBalance)}\nManoj Balance : ${formatCurrency(manojBalance)}\n\nTotal : ${formatCurrency(total)}`;
   };
 
-  /** WhatsApp text with base + adds - subtracts => total for Family (General) and Manoj lent categories */
-  const generateLentAddsWhatsAppLink = () => {
+  const generateWhatsAppLink = () => {
+    const encodedText = encodeURIComponent(buildBalanceShareText());
+    return `https://api.whatsapp.com/send/?phone=918667649058&text=${encodedText}&type=phone_number&app_absent=0`;
+  };
+
+  /** Share text with base + adds - subtracts => total for Family (General) and Manoj lent categories */
+  const buildLentAddsShareText = () => {
     const buildLine = (categoryName: string, label: string) => {
       const category = data?.lentCategories.find(
         (c) => c.name.toLowerCase() === categoryName.toLowerCase()
@@ -435,9 +436,37 @@ export default function Home() {
       return `${label} : ${formatCurrency(baseSum)}${addsStr}${subtractsStr} => ${formatCurrency(total)}`;
     };
 
-    const text = `${buildLine("Family", "General Balance")}\n${buildLine("Manoj", "Manoj Balance")}`;
-    const encodedText = encodeURIComponent(text);
+    const familyBalance = calculateCategoryBalance("Family");
+    const manojBalance = calculateCategoryBalance("Manoj");
+    const total = familyBalance + manojBalance;
+    return `${buildLine("Family", "General Balance")}\n${buildLine("Manoj", "Manoj Balance")}\n\nTotal : ${formatCurrency(total)}`;
+  };
+
+  const generateLentAddsWhatsAppLink = () => {
+    const encodedText = encodeURIComponent(buildLentAddsShareText());
     return `https://api.whatsapp.com/send/?phone=918667649058&text=${encodedText}&type=phone_number&app_absent=0`;
+  };
+
+  const copyShareText = async (kind: "balance" | "lent", text: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiedShare(kind);
+      if (copyResetRef.current) window.clearTimeout(copyResetRef.current);
+      copyResetRef.current = window.setTimeout(() => setCopiedShare(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy balance text:", error);
+    }
   };
 
   const hasLentAddsTracked = Object.values(lentEntryAddHistory).some(
@@ -996,12 +1025,12 @@ export default function Home() {
 
             {/* Savings Account Balance */}
             <div className="space-y-2">
-              <div>
+              <div className="flex gap-2">
                 <a
                   href={generateWhatsAppLink()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-1"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center gap-1"
                 >
                   <svg
                     className="w-4 h-4"
@@ -1012,6 +1041,13 @@ export default function Home() {
                   </svg>
                   WhatsApp
                 </a>
+                <button
+                  type="button"
+                  onClick={() => void copyShareText("balance", buildBalanceShareText())}
+                  className="shrink-0 px-4 py-2 border border-green-600 text-green-700 bg-white rounded-lg hover:bg-green-50 transition-colors text-sm font-medium"
+                >
+                  {copiedShare === "balance" ? "Copied" : "Copy"}
+                </button>
               </div>
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
                 <div className="flex justify-between items-center mb-2">
@@ -1043,21 +1079,30 @@ export default function Home() {
                   Money Lent Out ({formatCurrency(calculateTotalLent())})
                 </h3>
                 {hasLentAddsTracked && (
-                  <a
-                    href={generateLentAddsWhatsAppLink()}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium flex items-center gap-1"
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void copyShareText("lent", buildLentAddsShareText())}
+                      className="shrink-0 px-3 py-1.5 border border-green-600 text-green-700 bg-white rounded-lg hover:bg-green-50 transition-colors text-xs font-medium"
                     >
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-4.946 1.23l-.355.192-3.674-.965.985 3.601-.233.362a9.9 9.9 0 00-1.512 5.471c0 5.476 4.441 9.926 9.906 9.926 2.662 0 5.165-.994 7.287-2.8l.323-.243 3.761.98-.997-3.636.231-.362a9.9 9.9 0 001.511-5.471c0-5.476-4.44-9.926-9.906-9.926z" />
-                    </svg>
-                    Send WhatsApp
-                  </a>
+                      {copiedShare === "lent" ? "Copied" : "Copy"}
+                    </button>
+                    <a
+                      href={generateLentAddsWhatsAppLink()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium flex items-center gap-1"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-4.946 1.23l-.355.192-3.674-.965.985 3.601-.233.362a9.9 9.9 0 00-1.512 5.471c0 5.476 4.441 9.926 9.906 9.926 2.662 0 5.165-.994 7.287-2.8l.323-.243 3.761.98-.997-3.636.231-.362a9.9 9.9 0 001.511-5.471c0-5.476-4.44-9.926-9.906-9.926z" />
+                      </svg>
+                      Send WhatsApp
+                    </a>
+                  </div>
                 )}
               </div>
               <DndContext
