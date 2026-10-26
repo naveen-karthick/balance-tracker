@@ -32,11 +32,11 @@ export const PRICE_LIST: PriceItem[] = [
   { code: "0031", name: '1 1/2" x 3/4" bush thick (204)', usage: "JF1020, JF1130, JF7080-4 Nos", rate: "3.00" },
   { code: "0032", name: "3/4 inner bush (210)", usage: "JF7060", rate: "0.60" },
   { code: "0041", name: "Bunker Top Bush 2 Inch", usage: "Bunker Top Bush 2 Inch", rate: "3.60" },
-  { code: "0043", name: "Thread Leg Key Bush", usage: "", rate: "5.00" },
+  { code: "0043", name: "Thread Leg Key Bush", usage: "", rate: "3.00" },
   { code: "0044", name: "1 Inch Bush Laptop Table", usage: "1 Inch Bush Laptop Table", rate: "2.00" },
   { code: "0045", name: "Yoga Chair Gear", usage: "Yoga Chair Gear", rate: "30.00" },
   { code: "0046", name: '3/4" Square Bush', usage: "JF7015, JF5240", rate: "3.50" },
-  { code: "0051", name: "Nylon Wheel", usage: "Nylon Wheel", rate: "1.50" },
+  { code: "0051", name: "Nylon Wheel", usage: "Nylon Wheel", rate: "5.00" },
   { code: "", name: "White Gear", usage: "", rate: "10.00" },
 ];
 

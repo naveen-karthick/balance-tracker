@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
-import { formatNumber, parseAmount, type LineView, type SheetTotals } from "@/lib/gst";
+import { formatNumber, parseAmount, type GstRow, type LineView, type SheetTotals } from "@/lib/gst";
+import { encodeGstSheet, GST_PDF_COLUMN_MM, GST_PDF_MARGIN_MM } from "@/lib/gstPdfRestore";
 
 type SheetPdf = {
   title: string;
@@ -29,18 +30,24 @@ function sheetRows(sheet: SheetPdf): string[][] {
   return body;
 }
 
-export function downloadGstPdf(sheets: SheetPdf[]) {
+export function buildGstPdf(sheets: SheetPdf[], rows: GstRow[]) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const sheetData = encodeGstSheet(rows);
+  doc.setProperties({
+    title: "GST Sheet",
+    subject: sheetData,
+    keywords: sheetData,
+  });
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("GST Sheet", 14, 16);
+  doc.text("GST Sheet", GST_PDF_MARGIN_MM, 16);
 
   let startY = 22;
   sheets.forEach((sheet) => {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.setTextColor(0);
-    doc.text(sheet.title, 14, startY);
+    doc.text(sheet.title, GST_PDF_MARGIN_MM, startY);
     const body = sheetRows(sheet);
     const grandRow = body.length - 1;
     autoTable(doc, {
@@ -62,10 +69,10 @@ export function downloadGstPdf(sheets: SheetPdf[]) {
         halign: "left",
       },
       columnStyles: {
-        0: { halign: "left", cellWidth: 70 },
-        1: { halign: "right", cellWidth: 35 },
-        2: { halign: "right", cellWidth: 40 },
-        3: { halign: "right", cellWidth: 35 },
+        0: { halign: "left", cellWidth: GST_PDF_COLUMN_MM[0] },
+        1: { halign: "right", cellWidth: GST_PDF_COLUMN_MM[1] },
+        2: { halign: "right", cellWidth: GST_PDF_COLUMN_MM[2] },
+        3: { halign: "right", cellWidth: GST_PDF_COLUMN_MM[3] },
       },
       didParseCell: (data) => {
         if (data.section === "head" && data.column.index > 0) {
@@ -77,11 +84,15 @@ export function downloadGstPdf(sheets: SheetPdf[]) {
           if (data.row.index === grandRow) data.cell.styles.fontStyle = "bold";
         }
       },
-      margin: { left: 14, right: 14 },
+      margin: { left: GST_PDF_MARGIN_MM, right: GST_PDF_MARGIN_MM },
     });
     const placed = doc as jsPDF & { lastAutoTable?: { finalY: number } };
     startY = (placed.lastAutoTable?.finalY ?? startY + 40) + 12;
   });
 
-  doc.save("gst-sheet.pdf");
+  return doc;
+}
+
+export function downloadGstPdf(sheets: SheetPdf[], rows: GstRow[]) {
+  buildGstPdf(sheets, rows).save("gst-sheet.pdf");
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createColumnHelper,
   flexRender,
@@ -445,8 +445,13 @@ export function GstWorksheet() {
   const [ready, setReady] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [pendingRows, setPendingRows] = useState<GstRow[] | null>(null);
+  const [readingPdf, setReadingPdf] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [priceListOpen, setPriceListOpen] = useState(false);
   const [priceListRowId, setPriceListRowId] = useState<string | null>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const stored = loadStoredRows();
@@ -558,10 +563,49 @@ export function GstWorksheet() {
     const lines11 = rows.map(view11);
     const lines18 = view18Lines(rows);
     const { downloadGstPdf } = await import("@/lib/gstPdf");
-    downloadGstPdf([
-      { title: "GST 11%", gstLabel: "GST 11%", lines: lines11, totals: sheetTotals(lines11, GST_11) },
-      { title: "GST 18%", gstLabel: "GST 18%", lines: lines18, totals: sheetTotals(lines18, GST_18) },
-    ]);
+    downloadGstPdf(
+      [
+        { title: "GST 11%", gstLabel: "GST 11%", lines: lines11, totals: sheetTotals(lines11, GST_11) },
+        { title: "GST 18%", gstLabel: "GST 18%", lines: lines18, totals: sheetTotals(lines18, GST_18) },
+      ],
+      rows,
+    );
+  };
+
+  const applyRestored = useCallback((restored: GstRow[]) => {
+    const next = restored.length > 0 ? restored : [createGstRow()];
+    setRows(next);
+    setFocusId(next[0]?.id ?? null);
+    const count = next.filter((row) => row.product.trim() || row.rate.trim() || row.quantity.trim()).length;
+    setUploadMessage({
+      tone: "ok",
+      text: count === 0 ? "Restored an empty sheet." : `Restored ${count} product${count === 1 ? "" : "s"} from the PDF.`,
+    });
+  }, []);
+
+  const onPdfSelected = async (file: File | undefined) => {
+    if (!file) return;
+    setReadingPdf(true);
+    setUploadMessage(null);
+    try {
+      const { restoreGstSheet } = await import("@/lib/gstPdfRestore");
+      const restored = await restoreGstSheet(await file.arrayBuffer());
+      const hasEntries = rows.some((row) => row.product.trim() !== "" || row.rate.trim() !== "" || row.quantity.trim() !== "");
+      if (hasEntries) {
+        setPendingRows(restored);
+        setConfirmReplace(true);
+      } else {
+        applyRestored(restored);
+      }
+    } catch (error) {
+      setUploadMessage({
+        tone: "error",
+        text: error instanceof Error ? error.message : "Could not read that PDF.",
+      });
+    } finally {
+      setReadingPdf(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+    }
   };
 
   return (
@@ -574,9 +618,30 @@ export function GstWorksheet() {
             icon opens the full table when a code is not on it. The first sheet adds 11% GST, and
             the second sheet uses 18% with rates kept to 2 decimals so the whole-rupee totals match. Paise can differ.
           </p>
-          <p className="mt-1 text-xs text-gray-400">Saved in this browser.</p>
+          <p className="mt-1 text-xs text-gray-400">Saved in this browser. Upload a GST sheet PDF to put those products back.</p>
+          {uploadMessage ? (
+            <p className={`mt-1 text-sm ${uploadMessage.tone === "error" ? "text-red-600" : "text-gray-600"}`}>
+              {uploadMessage.text}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-2">
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="hidden"
+            aria-label="GST sheet PDF"
+            onChange={(event) => void onPdfSelected(event.target.files?.[0])}
+          />
+          <button
+            type="button"
+            onClick={() => pdfInputRef.current?.click()}
+            disabled={readingPdf}
+            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-black hover:bg-gray-50 disabled:text-gray-400"
+          >
+            {readingPdf ? "Reading PDF…" : "Upload PDF"}
+          </button>
           <button
             type="button"
             onClick={downloadPdf}
@@ -713,6 +778,19 @@ export function GstWorksheet() {
         message="This removes every product from both the 11% and 18% sheets."
         confirmLabel="Clear sheet"
         variant="danger"
+      />
+      <ConfirmModal
+        isOpen={confirmReplace}
+        onClose={() => {
+          setConfirmReplace(false);
+          setPendingRows(null);
+        }}
+        onConfirm={() => {
+          if (pendingRows) applyRestored(pendingRows);
+        }}
+        title="Replace this sheet?"
+        message="The products on the page will be replaced with the ones from the PDF."
+        confirmLabel="Replace sheet"
       />
     </div>
   );
