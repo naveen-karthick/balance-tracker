@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   createColumnHelper,
   flexRender,
@@ -106,7 +106,7 @@ function SheetInput({
       onChange={(event) => onChange(event.target.value)}
       onFocus={(event) => event.currentTarget.select()}
       onKeyDown={moveToNextInput}
-      className={`box-border h-10 w-full min-w-0 bg-transparent px-3 text-sm text-black outline-none focus:bg-gray-50 ${
+      className={`box-border h-11 w-full min-w-0 bg-transparent px-3 text-base text-black outline-none focus:bg-gray-50 md:h-10 md:text-sm ${
         align === "right" ? "text-right tabular-nums" : "text-left"
       } ${edited ? "bg-amber-50 focus:bg-amber-100" : ""}`}
     />
@@ -135,7 +135,7 @@ function ProductCell({
       : "View price list";
 
   return (
-    <div className="flex h-10 items-center">
+    <div className="flex h-11 items-center md:h-10">
       <input
         value={value}
         aria-label={label}
@@ -145,14 +145,14 @@ function ProductCell({
         onChange={(event) => onChange(event.target.value)}
         onFocus={(event) => event.currentTarget.select()}
         onKeyDown={moveToNextInput}
-        className="box-border h-10 min-w-0 flex-1 bg-transparent px-3 text-sm text-black outline-none focus:bg-gray-50"
+        className="box-border h-11 min-w-0 flex-1 bg-transparent px-3 text-base text-black outline-none focus:bg-gray-50 md:h-10 md:text-sm"
       />
       <button
         type="button"
         onClick={onOpenPriceList}
         title={title}
         aria-label={title}
-        className={`flex h-10 w-9 shrink-0 items-center justify-center ${
+        className={`flex h-11 w-11 shrink-0 items-center justify-center md:h-10 md:w-9 ${
           missing ? "text-orange-600 hover:bg-orange-50" : "text-gray-400 hover:bg-gray-100 hover:text-black"
         }`}
       >
@@ -167,10 +167,22 @@ function ProductCell({
 function TotalCell({ rate, quantity }: { rate: string; quantity: string }) {
   const total = parseAmount(rate) * parseAmount(quantity);
   return (
-    <div className="flex h-10 items-center justify-end px-3 text-right text-sm tabular-nums text-black">
+    <div className="flex h-11 items-center justify-end px-3 text-right text-base tabular-nums text-black md:h-10 md:text-sm">
       {formatNumber(total, 2)}
     </div>
   );
+}
+
+function product11Patch(row: Pick<SheetRow, "product11" | "rate11">, product: string): Partial<GstRow> {
+  const match = findPrice(product);
+  const previousMatch = findPrice(row.product11);
+  const patch: Partial<GstRow> = { product };
+  if (match) {
+    patch.rate = match.rate;
+  } else if (previousMatch && row.rate11 === previousMatch.rate) {
+    patch.rate = "";
+  }
+  return patch;
 }
 
 const columns11 = columnHelper.columns([
@@ -183,17 +195,7 @@ const columns11 = columnHelper.columns([
         label={`Product ${info.row.index + 1}`}
         focusToken={info.row.original.id}
         onChange={(product) => {
-          const previous = info.row.original.product11;
-          const currentRate = info.row.original.rate11;
-          const match = findPrice(product);
-          const previousMatch = findPrice(previous);
-          const patch: Partial<GstRow> = { product };
-          if (match) {
-            patch.rate = match.rate;
-          } else if (previousMatch && currentRate === previousMatch.rate) {
-            patch.rate = "";
-          }
-          info.table.options.meta?.updateRow(info.row.original.id, patch);
+          info.table.options.meta?.updateRow(info.row.original.id, product11Patch(info.row.original, product));
         }}
         onOpenPriceList={() => info.table.options.meta?.openPriceList(info.row.original.id)}
       />
@@ -324,6 +326,150 @@ function formatSignedInr(difference: number): string {
   return `₹${text}`;
 }
 
+function MobileField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block min-w-0">
+      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">{label}</span>
+      <div className="overflow-hidden rounded-lg border border-gray-300 bg-white">{children}</div>
+    </label>
+  );
+}
+
+function MobileSheet({
+  data,
+  meta,
+  variant,
+  gstLabel,
+  totals,
+  gap,
+}: {
+  data: SheetRow[];
+  meta: GstTableMeta;
+  variant: "11" | "18";
+  gstLabel: string;
+  totals: SheetTotals;
+  gap?: number;
+}) {
+  const is11 = variant === "11";
+
+  return (
+    <div>
+      {data.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-gray-500">Add a product to start the sheet.</p>
+      ) : (
+        <div className="divide-y divide-gray-200">
+          {data.map((row, index) => {
+            const rate = is11 ? row.rate11 : row.rate18;
+            const quantity = is11 ? row.quantity11 : row.quantity18;
+            return (
+              <article key={row.id} className="space-y-3 px-4 py-4">
+                <div className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1">
+                    {is11 ? (
+                      <MobileField label={`Product ${index + 1}`}>
+                        <ProductCell
+                          value={row.product11}
+                          label={`Product ${index + 1}`}
+                          focusToken={row.id}
+                          onChange={(product) => meta.updateRow(row.id, product11Patch(row, product))}
+                          onOpenPriceList={() => meta.openPriceList(row.id)}
+                        />
+                      </MobileField>
+                    ) : (
+                      <MobileField label={`Product ${index + 1}`}>
+                        <SheetInput
+                          value={row.product18}
+                          label={`18% product ${index + 1}`}
+                          edited={row.product18Edited}
+                          onChange={(value) =>
+                            meta.updateRow(row.id, { product18: value === row.product11 ? null : value })
+                          }
+                        />
+                      </MobileField>
+                    )}
+                  </div>
+                  {is11 ? (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${row.product11 || "product"} ${index + 1}`}
+                      onClick={() => meta.removeRow(row.id)}
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-gray-500"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+                        <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                      </svg>
+                    </button>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <MobileField label="Rate">
+                    <SheetInput
+                      value={rate}
+                      label={is11 ? `Rate ${index + 1}` : `18% rate ${index + 1}`}
+                      align="right"
+                      decimal
+                      edited={!is11 && row.rate18Edited}
+                      onChange={(value) =>
+                        is11
+                          ? meta.updateRow(row.id, { rate: value })
+                          : meta.updateRow(row.id, {
+                              rate18: value === scaledRateString(row.rate11) ? null : value,
+                            })
+                      }
+                    />
+                  </MobileField>
+                  <MobileField label="Quantity">
+                    <SheetInput
+                      value={quantity}
+                      label={is11 ? `Quantity ${index + 1}` : `18% quantity ${index + 1}`}
+                      align="right"
+                      decimal
+                      edited={!is11 && row.quantity18Edited}
+                      onChange={(value) =>
+                        is11
+                          ? meta.updateRow(row.id, { quantity: value })
+                          : meta.updateRow(row.id, {
+                              quantity18: value === row.quantity11 ? null : value,
+                            })
+                      }
+                    />
+                  </MobileField>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-gray-500">Total</span>
+                  <span className="font-semibold tabular-nums text-black">
+                    {formatNumber(parseAmount(rate) * parseAmount(quantity), 2)}
+                  </span>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+      <dl className="space-y-2 border-t border-gray-200 px-4 py-3 text-sm">
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-gray-600">Total</dt>
+          <dd className="tabular-nums text-black">{formatNumber(totals.subtotal, 2)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3">
+          <dt className="text-gray-600">{gstLabel}</dt>
+          <dd className="tabular-nums text-black">{formatNumber(totals.gst, 3)}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-3 border-t border-gray-100 pt-2 font-semibold text-black">
+          <dt>Grand Total</dt>
+          <dd className="tabular-nums">{formatNumber(totals.grand, 2)}</dd>
+        </div>
+        {gap !== undefined && gap !== 0 ? (
+          <div className="flex items-baseline justify-between gap-3 text-orange-700">
+            <dt>vs 11% total</dt>
+            <dd className="tabular-nums">{formatGap(gap)}</dd>
+          </div>
+        ) : null}
+      </dl>
+    </div>
+  );
+}
+
 function SheetTable({
   data,
   columns,
@@ -351,8 +497,14 @@ function SheetTable({
 
   const cellBorder = "border border-gray-300";
 
+  const variant = hasActions ? "11" : "18";
+
   return (
-    <div className="overflow-x-auto">
+    <>
+    <div className="md:hidden">
+      <MobileSheet data={data} meta={meta} variant={variant} gstLabel={gstLabel} totals={totals} gap={gap} />
+    </div>
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full table-fixed border-collapse">
         <colgroup>
           <col />
@@ -437,6 +589,7 @@ function SheetTable({
         </tfoot>
       </table>
     </div>
+    </>
   );
 }
 
@@ -466,7 +619,10 @@ export function GstWorksheet() {
 
   useEffect(() => {
     if (!focusId) return;
-    document.querySelector<HTMLInputElement>(`[data-focus="${focusId}"]`)?.focus();
+    const visible = Array.from(document.querySelectorAll<HTMLInputElement>(`[data-focus="${focusId}"]`)).find(
+      (input) => input.getClientRects().length > 0,
+    );
+    visible?.focus();
     setFocusId(null);
   }, [focusId, rows]);
 
@@ -609,9 +765,9 @@ export function GstWorksheet() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <div className="mx-auto min-w-0 max-w-4xl px-4 py-6 sm:px-6 sm:py-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
           <h1 className="text-xl font-bold tracking-tight text-black">GST Sheet</h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">
             Type a product code and the rate fills in from the Jayam Agency price list. The list
@@ -625,7 +781,7 @@ export function GstWorksheet() {
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+        <div className="grid grid-cols-2 gap-2 md:flex md:shrink-0 md:flex-wrap md:justify-end">
           <input
             ref={pdfInputRef}
             type="file"
@@ -638,14 +794,14 @@ export function GstWorksheet() {
             type="button"
             onClick={() => pdfInputRef.current?.click()}
             disabled={readingPdf}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-black hover:bg-gray-50 disabled:text-gray-400"
+            className="h-11 rounded-lg border border-gray-200 px-3 text-sm font-medium text-black hover:bg-gray-50 disabled:text-gray-400 md:h-auto md:py-2"
           >
             {readingPdf ? "Reading PDF…" : "Upload PDF"}
           </button>
           <button
             type="button"
             onClick={downloadPdf}
-            className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="h-11 rounded-lg bg-black px-3 text-sm font-medium text-white hover:bg-gray-800 md:h-auto md:py-2"
           >
             Download PDF
           </button>
@@ -655,14 +811,14 @@ export function GstWorksheet() {
               setPriceListRowId(null);
               setPriceListOpen(true);
             }}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-black hover:bg-gray-50"
+            className="h-11 rounded-lg border border-gray-200 px-3 text-sm font-medium text-black hover:bg-gray-50 md:h-auto md:py-2"
           >
             Price list
           </button>
           <button
             type="button"
             onClick={() => setConfirmClear(true)}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="h-11 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 md:h-auto md:py-2"
           >
             Clear
           </button>
@@ -722,7 +878,7 @@ export function GstWorksheet() {
               <button
                 type="button"
                 onClick={addRow}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-black hover:bg-gray-50"
+                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 text-sm font-medium text-black hover:bg-gray-50 sm:w-auto sm:justify-start"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4" aria-hidden="true">
                   <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -733,8 +889,8 @@ export function GstWorksheet() {
           </section>
 
           <section className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
-            <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
-              <div>
+            <div className="flex flex-col gap-3 border-b border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <h2 className="text-base font-semibold text-black">GST 18%</h2>
                 <p className="text-xs text-gray-500">
                   {model.hasEdits
@@ -746,7 +902,7 @@ export function GstWorksheet() {
                 type="button"
                 onClick={resetRates}
                 disabled={!model.hasCustomRates}
-                className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-black hover:bg-gray-50 disabled:cursor-default disabled:text-gray-400 disabled:hover:bg-transparent"
+                className="h-11 shrink-0 rounded-lg border border-gray-200 px-3 text-sm font-medium text-black hover:bg-gray-50 disabled:cursor-default disabled:text-gray-400 disabled:hover:bg-transparent sm:h-auto sm:py-1.5"
               >
                 Reset rates
               </button>

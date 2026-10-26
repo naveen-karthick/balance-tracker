@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import {
   createColumnHelper,
@@ -42,7 +42,13 @@ export default function PriceListModal({
   onSelect: (item: PriceItem) => void;
 }) {
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const data = useMemo(() => filterPriceList(search), [search]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (window.matchMedia("(min-width: 768px)").matches) searchRef.current?.focus();
+  }, [isOpen]);
   const table = useTable({
     features,
     data,
@@ -75,9 +81,9 @@ export default function PriceListModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <Dialog.Panel className="w-full max-w-4xl overflow-hidden rounded-xl bg-white shadow-xl">
+              <Dialog.Panel className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-xl">
                 <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-5 py-4">
-                  <div>
+                  <div className="min-w-0">
                     <Dialog.Title className="text-lg font-semibold text-black">
                       Jayam Agency price list
                     </Dialog.Title>
@@ -88,7 +94,7 @@ export default function PriceListModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-black"
+                    className="shrink-0 rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-black"
                     aria-label="Close price list"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden="true">
@@ -102,12 +108,41 @@ export default function PriceListModal({
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Search code, product, or usage"
                     aria-label="Search price list"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black outline-none focus:border-black"
-                    autoFocus
+                    ref={searchRef}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-base text-black outline-none focus:border-black md:text-sm"
                   />
                 </div>
-                <div className="max-h-[60vh] overflow-auto">
-                  <table className="w-full table-fixed border-collapse text-sm">
+                <div className="min-h-0 flex-1 overflow-auto">
+                  <div className="md:hidden">
+                    {table.getRowModel().rows.length === 0 ? (
+                      <p className="px-5 py-8 text-center text-sm text-gray-500">No product matches that search.</p>
+                    ) : (
+                      <div className="divide-y divide-gray-200">
+                        {table.getRowModel().rows.map((row) => (
+                          <button
+                            key={row.id}
+                            type="button"
+                            onClick={() => onSelect(row.original)}
+                            className="w-full px-5 py-3 text-left"
+                          >
+                            <span className="flex items-baseline justify-between gap-3">
+                              <span className="min-w-0 truncate text-base font-semibold text-black">
+                                {row.original.code || row.original.name}
+                              </span>
+                              <span className="shrink-0 text-base tabular-nums text-black">{row.original.rate}</span>
+                            </span>
+                            {row.original.code ? (
+                              <span className="mt-0.5 block text-sm text-gray-700">{row.original.name}</span>
+                            ) : null}
+                            {row.original.usage ? (
+                              <span className="mt-0.5 block text-xs text-gray-500">{row.original.usage}</span>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <table className="hidden w-full table-fixed border-collapse text-sm md:table">
                     <colgroup>
                       <col style={{ width: "6rem" }} />
                       <col />
