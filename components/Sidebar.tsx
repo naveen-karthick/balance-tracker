@@ -3,13 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { NotificationIcon } from "./NotificationPrompt";
+import { canAccessInventory } from "@/lib/inventoryAccess";
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { data: session } = useSession();
   const isMissions = pathname === "/missions";
 
   const handleLogout = async () => {
@@ -49,6 +51,18 @@ export function Sidebar() {
       ),
     },
   ];
+
+  if (canAccessInventory(session?.user?.email)) {
+    navItems.push({
+      name: "Orders & Stock",
+      href: "/inventory",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+        </svg>
+      ),
+    });
+  }
 
   return (
     <>

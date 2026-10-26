@@ -196,3 +196,55 @@ model PushSubscription {
   @@index([userId])
   @@map("push_subscriptions")
 }
+
+// Shared Jayam order book. Not tied to a user — both inventory accounts edit the same rows.
+model PendingOrder {
+  id          Int      @id @default(autoincrement())
+  orderNumber String   @unique @map("order_number")
+  orderDate   DateTime @map("order_date") @db.Date
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  lines PendingOrderLine[]
+
+  @@index([sortOrder])
+  @@map("pending_orders")
+}
+
+model PendingOrderLine {
+  id                Int      @id @default(autoincrement())
+  orderId           Int      @map("order_id")
+  product           String
+  totalQuantity     Int      @map("total_quantity")
+  filledQuantity    Int      @default(0) @map("filled_quantity")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  order PendingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("pending_order_lines")
+}
+
+// Products that can be chosen on an order or stock row.
+model CatalogProduct {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  code      String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("catalog_products")
+}
+
+// On-hand units for one product. Quantity is a count of individual pieces.
+model StockUnit {
+  id        Int      @id @default(autoincrement())
+  product   String   @unique
+  quantity  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("stock_units")
+}
