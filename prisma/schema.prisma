@@ -207,6 +207,7 @@ model AuditLog {
   entityType String   @map("entity_type")
   entityName String   @map("entity_name")
   summary    String   @db.Text
+  snapshot   Json?
   createdAt  DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

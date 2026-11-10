@@ -45,6 +45,7 @@ export async function GET(request: Request) {
         entityType: entry.entityType,
         entityName: entry.entityName,
         summary: entry.summary,
+        snapshot: entry.snapshot,
         createdAt: entry.createdAt.toISOString(),
       })),
       nextCursor: hasMore ? page[page.length - 1].id : null,

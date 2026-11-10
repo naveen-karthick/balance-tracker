@@ -1,7 +1,65 @@
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { formatCurrency } from "@/lib/currency";
+import { fetchPortfolioData } from "@/lib/fetchPortfolioData";
 
 export type AuditArea = "portfolio" | "bookkeeping" | "joint";
+
+function buildAreaSnapshot(
+  area: AuditArea,
+  data: Awaited<ReturnType<typeof fetchPortfolioData>>
+): Prisma.InputJsonValue {
+  if (area === "portfolio") {
+    const categories = data.portfolioCategories.map((category) => ({
+      name: category.name,
+      amount: category.amount,
+      isLiquid: category.isLiquid,
+      isLocked: category.isLocked,
+      isStock: category.isStock,
+      stockSymbol: category.stockSymbol,
+      stockUnits: category.stockUnits,
+    }));
+    const recordedTotal = categories.reduce(
+      (sum, category) => sum + (category.isStock ? 0 : category.amount),
+      0
+    );
+    return { kind: "portfolio", recordedTotal, categories };
+  }
+
+  if (area === "bookkeeping") {
+    const lentCategories = data.lentCategories.map((category) => {
+      const entries = category.entries.map((entry) => ({
+        name: entry.name,
+        amount: entry.amount,
+        date: entry.date,
+        notes: entry.notes,
+      }));
+      return {
+        name: category.name,
+        total: entries.reduce((sum, entry) => sum + entry.amount, 0),
+        entries,
+      };
+    });
+    const lentTotal = lentCategories.reduce((sum, category) => sum + category.total, 0);
+    return {
+      kind: "bookkeeping",
+      savingsAccount: data.savingsAccount,
+      lentTotal,
+      cashAndReceivables: data.savingsAccount + lentTotal,
+      lentCategories,
+    };
+  }
+
+  const categories = data.jointCategories.map((category) => ({
+    name: category.name,
+    amount: category.amount,
+  }));
+  return {
+    kind: "joint",
+    total: categories.reduce((sum, category) => sum + category.amount, 0),
+    categories,
+  };
+}
 
 export async function recordAudit(input: {
   userId: number;
@@ -11,6 +69,14 @@ export async function recordAudit(input: {
   entityName: string;
   summary: string;
 }) {
+  let snapshot: Prisma.InputJsonValue | undefined;
+  try {
+    const data = await fetchPortfolioData(input.userId);
+    snapshot = buildAreaSnapshot(input.area, data);
+  } catch (error) {
+    console.error("Failed to capture audit snapshot:", error);
+  }
+
   try {
     await prisma.auditLog.create({
       data: {
@@ -20,6 +86,7 @@ export async function recordAudit(input: {
         entityType: input.entityType,
         entityName: input.entityName,
         summary: input.summary,
+        ...(snapshot ? { snapshot } : {}),
       },
     });
   } catch (error) {
