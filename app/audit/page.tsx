@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Dialog, Transition } from "@headlessui/react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/currency";
 
@@ -54,12 +55,28 @@ const TABS: { id: AuditArea; label: string }[] = [
   { id: "joint", label: "Joint Accounts" },
 ];
 
+const ACTION_LABEL: Record<string, string> = {
+  created: "Added",
+  updated: "Updated",
+  deleted: "Deleted",
+  added_money: "Added money",
+  subtracted_money: "Subtracted money",
+};
+
 const ACTION_CLASS: Record<string, string> = {
   created: "bg-green-100 text-green-800",
   updated: "bg-blue-100 text-blue-800",
   deleted: "bg-red-100 text-red-800",
   added_money: "bg-emerald-100 text-emerald-800",
   subtracted_money: "bg-amber-100 text-amber-800",
+};
+
+const DOT_CLASS: Record<string, string> = {
+  created: "bg-green-500",
+  updated: "bg-blue-500",
+  deleted: "bg-red-500",
+  added_money: "bg-emerald-500",
+  subtracted_money: "bg-amber-500",
 };
 
 function startOfDay(date: Date) {
@@ -78,12 +95,43 @@ function dayLabel(iso: string) {
   });
 }
 
-function formatTime(iso: string) {
+function formatTime(iso: string, withSeconds = false) {
   return new Date(iso).toLocaleTimeString("en-IN", {
     hour: "numeric",
     minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" as const } : {}),
     hour12: true,
   });
+}
+
+function formatFullWhen(iso: string) {
+  const date = new Date(iso);
+  const day = date.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  return `${day}, ${formatTime(iso, true)}`;
+}
+
+function splitSummary(summary: string) {
+  return summary
+    .split(/(?<=\.)\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function ActionBadge({ action }: { action: string }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+        ACTION_CLASS[action] ?? "bg-gray-100 text-gray-700"
+      }`}
+    >
+      {ACTION_LABEL[action] ?? action}
+    </span>
+  );
 }
 
 function formatEntryDate(value: string) {
@@ -95,15 +143,6 @@ function formatEntryDate(value: string) {
     year: "numeric",
     timeZone: "UTC",
   });
-}
-
-function whatHappened(entry: AuditEntry) {
-  const name = entry.entityName;
-  if (entry.action === "added_money") return `Added money into ${name}`;
-  if (entry.action === "subtracted_money") return `Subtracted money from ${name}`;
-  if (entry.action === "deleted") return `Deleted ${name}`;
-  if (entry.action === "created") return `Added ${name}`;
-  return `Updated ${name}`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -290,6 +329,119 @@ function SnapshotView({ snapshot }: { snapshot: PortfolioSnapshot | BookkeepingS
   );
 }
 
+function DetailModal({
+  entry,
+  onClose,
+}: {
+  entry: AuditEntry | null;
+  onClose: () => void;
+}) {
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const facts = entry ? splitSummary(entry.summary) : [];
+  const snapshot = entry ? readSnapshot(entry.snapshot) : null;
+
+  useEffect(() => {
+    setSnapshotOpen(false);
+  }, [entry?.id]);
+
+  return (
+    <Transition appear show={entry !== null} as={Fragment}>
+      <Dialog as="div" className="relative z-[80]" onClose={onClose}>
+        <Transition.Child
+          as={Fragment}
+          enter="ease-out duration-200"
+          enterFrom="opacity-0"
+          enterTo="opacity-100"
+          leave="ease-in duration-150"
+          leaveFrom="opacity-100"
+          leaveTo="opacity-0"
+        >
+          <div className="fixed inset-0 bg-black/50" />
+        </Transition.Child>
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex min-h-full items-end sm:items-center justify-center sm:p-4">
+            <Transition.Child
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            >
+              <Dialog.Panel className="w-full sm:max-w-md rounded-t-2xl sm:rounded-xl bg-white p-5 shadow-xl max-h-[90vh] overflow-y-auto">
+                {entry && (
+                  <>
+                    <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 sm:hidden" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <ActionBadge action={entry.action} />
+                        <Dialog.Title className="mt-2 text-lg font-semibold text-black">
+                          {entry.entityName}
+                        </Dialog.Title>
+                        <p className="mt-1 text-sm text-gray-500">{formatFullWhen(entry.createdAt)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                        aria-label="Close"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <ul className="mt-5 space-y-3">
+                      {facts.map((fact, index) => (
+                        <li key={`${index}-${fact}`} className="flex gap-3 text-sm text-gray-800 leading-relaxed">
+                          <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${DOT_CLASS[entry.action] ?? "bg-gray-400"}`} />
+                          <span>{fact}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-5 border-t border-gray-100 pt-3">
+                      <button
+                        type="button"
+                        aria-expanded={snapshotOpen}
+                        onClick={() => setSnapshotOpen((open) => !open)}
+                        className="flex w-full items-center justify-between gap-3 py-2 text-left"
+                      >
+                        <span className="text-sm font-medium text-black">Snapshot at this time</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${snapshotOpen ? "rotate-90" : ""}`}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
+                      </button>
+                      {snapshotOpen && (
+                        <div className="pb-1 pt-2">
+                          {snapshot ? (
+                            <SnapshotView snapshot={snapshot} />
+                          ) : (
+                            <p className="text-sm text-gray-500">
+                              This change was saved before snapshots were kept, so the full picture from that moment is not available.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </Dialog.Panel>
+            </Transition.Child>
+          </div>
+        </div>
+      </Dialog>
+    </Transition>
+  );
+}
+
 export default function AuditPage() {
   const [area, setArea] = useState<AuditArea>("portfolio");
   const [entries, setEntries] = useState<AuditEntry[]>([]);
@@ -297,7 +449,7 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
-  const [openId, setOpenId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<AuditEntry | null>(null);
   const areaRef = useRef(area);
   areaRef.current = area;
 
@@ -318,7 +470,7 @@ export default function AuditPage() {
     setError("");
     setEntries([]);
     setNextCursor(null);
-    setOpenId(null);
+    setSelected(null);
 
     load(area)
       .then((result) => {
@@ -379,7 +531,7 @@ export default function AuditPage() {
           </Link>
           <h1 className="text-3xl font-bold text-black tracking-tight mt-2">Audit History</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Each row is what happened. Open it to see everything as it stood at that moment.
+            Tap a change to see the full details.
           </p>
         </div>
 
@@ -422,67 +574,27 @@ export default function AuditPage() {
                   </h2>
                   <div className="card divide-y divide-gray-100 overflow-hidden">
                     {group.entries.map((entry) => {
-                      const open = openId === entry.id;
-                      const snapshot = readSnapshot(entry.snapshot);
+                      const preview = splitSummary(entry.summary)[0] ?? entry.summary;
                       return (
-                        <div key={entry.id}>
-                          <button
-                            type="button"
-                            aria-expanded={open}
-                            onClick={() => setOpenId(open ? null : entry.id)}
-                            className="w-full text-left px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                                  What happened
-                                </p>
-                                <p className="mt-0.5 font-medium text-black">{whatHappened(entry)}</p>
-                                <p className="mt-1 text-sm text-gray-600 leading-snug">{entry.summary}</p>
-                                <p className="mt-1 text-xs text-gray-500">{formatTime(entry.createdAt)}</p>
-                              </div>
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth={2}
-                                stroke="currentColor"
-                                className={`w-4 h-4 mt-1 shrink-0 text-gray-400 transition-transform ${open ? "rotate-90" : ""}`}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                              </svg>
-                            </div>
-                            <span
-                              className={`mt-2 inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
-                                ACTION_CLASS[entry.action] ?? "bg-gray-100 text-gray-700"
-                              }`}
-                            >
-                              {entry.action === "added_money"
-                                ? "Added money"
-                                : entry.action === "subtracted_money"
-                                  ? "Subtracted money"
-                                  : entry.action === "created"
-                                    ? "Added"
-                                    : entry.action === "deleted"
-                                      ? "Deleted"
-                                      : "Updated"}
-                            </span>
-                          </button>
-                          {open && (
-                            <div className="border-t border-gray-100 bg-white px-4 py-3">
-                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                                Snapshot at this time
-                              </p>
-                              {snapshot ? (
-                                <SnapshotView snapshot={snapshot} />
-                              ) : (
-                                <p className="text-sm text-gray-500">
-                                  This change was saved before snapshots were kept, so the full picture from that moment is not available.
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => setSelected(entry)}
+                          className="w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                        >
+                          <div className="w-[4.5rem] shrink-0 pt-0.5">
+                            <p className="text-sm font-medium text-black">{formatTime(entry.createdAt)}</p>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <ActionBadge action={entry.action} />
+                            <p className="mt-1 text-sm text-gray-800 leading-snug line-clamp-2">
+                              {preview}
+                            </p>
+                          </div>
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 mt-1 shrink-0 text-gray-400">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                          </svg>
+                        </button>
                       );
                     })}
                   </div>
@@ -503,6 +615,8 @@ export default function AuditPage() {
           )}
         </div>
       </div>
+
+      <DetailModal entry={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
