@@ -2,6 +2,33 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { fetchPortfolioData } from "@/lib/fetchPortfolioData";
+import {
+  describePortfolioCreate,
+  describePortfolioDelete,
+  describePortfolioUpdate,
+  recordAudit,
+  type PortfolioSnap,
+} from "@/lib/auditLog";
+
+function toPortfolioSnap(row: {
+  name: string;
+  amount: { toString(): string } | number;
+  isLiquid: boolean;
+  isLocked: boolean;
+  isStock: boolean;
+  stockSymbol: string | null;
+  stockUnits: { toString(): string } | number | null;
+}): PortfolioSnap {
+  return {
+    name: row.name,
+    amount: Number(row.amount),
+    isLiquid: row.isLiquid,
+    isLocked: row.isLocked,
+    isStock: row.isStock,
+    stockSymbol: row.stockSymbol,
+    stockUnits: row.stockUnits == null ? null : Number(row.stockUnits),
+  };
+}
 
 function buildCategoryData(body: {
   name: string;
@@ -87,6 +114,15 @@ export async function POST(request: Request) {
       },
     });
 
+    await recordAudit({
+      userId,
+      area: "portfolio",
+      action: "created",
+      entityType: "portfolio_category",
+      entityName: result.data.name,
+      summary: describePortfolioCreate(toPortfolioSnap(result.data)),
+    });
+
     const data = await fetchPortfolioData(userId);
     return NextResponse.json(data);
   } catch (error) {
@@ -121,10 +157,33 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
-    await prisma.portfolioCategory.updateMany({
+    const existing = await prisma.portfolioCategory.findFirst({
       where: { id: parseInt(id), userId },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
+    await prisma.portfolioCategory.update({
+      where: { id: existing.id },
       data: result.data,
     });
+
+    const summary = describePortfolioUpdate(
+      toPortfolioSnap(existing),
+      toPortfolioSnap(result.data)
+    );
+    if (summary) {
+      await recordAudit({
+        userId,
+        area: "portfolio",
+        action: "updated",
+        entityType: "portfolio_category",
+        entityName: result.data.name,
+        summary,
+      });
+    }
 
     const data = await fetchPortfolioData(userId);
     return NextResponse.json(data);
@@ -154,8 +213,25 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await prisma.portfolioCategory.deleteMany({
+    const existing = await prisma.portfolioCategory.findFirst({
       where: { id: parseInt(id), userId },
+    });
+
+    if (!existing) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
+    await prisma.portfolioCategory.delete({
+      where: { id: existing.id },
+    });
+
+    await recordAudit({
+      userId,
+      area: "portfolio",
+      action: "deleted",
+      entityType: "portfolio_category",
+      entityName: existing.name,
+      summary: describePortfolioDelete(toPortfolioSnap(existing)),
     });
 
     const data = await fetchPortfolioData(userId);

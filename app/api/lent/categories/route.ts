@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { fetchPortfolioData } from "@/lib/fetchPortfolioData";
+import { describeLentCategoryDelete, recordAudit } from "@/lib/auditLog";
 
 // POST - Add new lent category
 export async function POST(request: Request) {
@@ -25,6 +26,15 @@ export async function POST(request: Request) {
 
     await prisma.lentCategory.create({
       data: { userId, name },
+    });
+
+    await recordAudit({
+      userId,
+      area: "bookkeeping",
+      action: "created",
+      entityType: "lent_category",
+      entityName: name,
+      summary: `Added lent category "${name}".`,
     });
 
     // Fetch and return updated data
@@ -58,6 +68,7 @@ export async function DELETE(request: Request) {
 
     const category = await prisma.lentCategory.findFirst({
       where: { id: parseInt(id), userId },
+      include: { entries: true },
     });
 
     if (!category) {
@@ -66,6 +77,21 @@ export async function DELETE(request: Request) {
 
     await prisma.lentCategory.delete({
       where: { id: parseInt(id) },
+    });
+
+    await recordAudit({
+      userId,
+      area: "bookkeeping",
+      action: "deleted",
+      entityType: "lent_category",
+      entityName: category.name,
+      summary: describeLentCategoryDelete({
+        name: category.name,
+        entries: category.entries.map((entry) => ({
+          name: entry.name,
+          amount: Number(entry.amount),
+        })),
+      }),
     });
 
     const data = await fetchPortfolioData(userId);

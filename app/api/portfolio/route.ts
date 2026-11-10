@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { fetchPortfolioData } from "@/lib/fetchPortfolioData";
+import { describeSavingsUpdate, recordAudit } from "@/lib/auditLog";
 
 // GET - Fetch all portfolio data for logged-in user
 export async function GET() {
@@ -34,12 +35,26 @@ export async function PUT(request: Request) {
 
   try {
     const { amount } = await request.json();
-    
+    const previous = await prisma.savingsAccount.findUnique({ where: { userId } });
+    const before = Number(previous?.amount ?? 0);
+
     await prisma.savingsAccount.upsert({
       where: { userId },
       update: { amount },
       create: { userId, amount },
     });
+
+    const summary = describeSavingsUpdate(before, Number(amount));
+    if (summary) {
+      await recordAudit({
+        userId,
+        area: "bookkeeping",
+        action: "updated",
+        entityType: "savings_account",
+        entityName: "Savings Account",
+        summary,
+      });
+    }
 
     // Return updated data
     const data = await fetchPortfolioData(userId);

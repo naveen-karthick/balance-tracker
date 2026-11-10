@@ -2,6 +2,18 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/prisma";
 import { fetchPortfolioData } from "@/lib/fetchPortfolioData";
+import {
+  dateKey,
+  describeLentEntryCreate,
+  describeLentEntryDelete,
+  describeLentEntryUpdate,
+  recordAudit,
+} from "@/lib/auditLog";
+
+function positiveAmount(value: unknown) {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
 
 // POST - Add new lent entry to a category
 export async function POST(request: Request) {
@@ -52,6 +64,23 @@ export async function POST(request: Request) {
       },
     });
 
+    await recordAudit({
+      userId,
+      area: "bookkeeping",
+      action: "created",
+      entityType: "lent_entry",
+      entityName: name,
+      summary: describeLentEntryCreate({
+        name,
+        categoryName: category.name,
+        amount: Number(amount),
+        date,
+        notes: notes || "",
+        savingsBefore: currentSavings,
+        savingsAfter: newSavings,
+      }),
+    });
+
     // Fetch and return updated data
     const data = await fetchPortfolioData(userId);
     return NextResponse.json(data);
@@ -72,7 +101,7 @@ export async function PUT(request: Request) {
   const userId = parseInt(session.user.id);
 
   try {
-    const { id, name, amount, date, notes } = await request.json();
+    const { id, name, amount, date, notes, addMoney, subtractMoney } = await request.json();
     
     if (!id || !name || amount === undefined || !date) {
       return NextResponse.json(
@@ -87,6 +116,7 @@ export async function PUT(request: Request) {
         id: parseInt(id),
         category: { userId }
       },
+      include: { category: true },
     });
 
     if (!entry) {
@@ -114,6 +144,33 @@ export async function PUT(request: Request) {
         notes: notes || "",
       },
     });
+
+    const change = describeLentEntryUpdate({
+      beforeName: entry.name,
+      afterName: name,
+      categoryName: entry.category.name,
+      beforeAmount: Number(entry.amount),
+      afterAmount: Number(amount),
+      beforeDate: dateKey(entry.date),
+      afterDate: dateKey(date),
+      beforeNotes: entry.notes || "",
+      afterNotes: notes || "",
+      addMoney: positiveAmount(addMoney),
+      subtractMoney: positiveAmount(subtractMoney),
+      savingsBefore: currentSavings,
+      savingsAfter: newSavings,
+    });
+
+    if (change) {
+      await recordAudit({
+        userId,
+        area: "bookkeeping",
+        action: change.action,
+        entityType: "lent_entry",
+        entityName: name,
+        summary: change.summary,
+      });
+    }
 
     // Fetch and return updated data
     const data = await fetchPortfolioData(userId);
@@ -150,6 +207,7 @@ export async function DELETE(request: Request) {
         id: parseInt(id),
         category: { userId }
       },
+      include: { category: true },
     });
 
     if (!entry) {
@@ -169,6 +227,21 @@ export async function DELETE(request: Request) {
 
     await prisma.lentEntry.delete({
       where: { id: parseInt(id) },
+    });
+
+    await recordAudit({
+      userId,
+      area: "bookkeeping",
+      action: "deleted",
+      entityType: "lent_entry",
+      entityName: entry.name,
+      summary: describeLentEntryDelete({
+        name: entry.name,
+        categoryName: entry.category.name,
+        amount: entryAmount,
+        savingsBefore: currentSavings,
+        savingsAfter: newSavings,
+      }),
     });
 
     // Fetch and return updated data
