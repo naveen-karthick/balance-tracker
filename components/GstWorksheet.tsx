@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-table";
 import ConfirmModal from "@/components/ConfirmModal";
 import PriceListModal from "@/components/PriceListModal";
+import PriceSheetModal from "@/components/PriceSheetModal";
 import { findPrice, type PriceItem } from "@/lib/priceList";
 import {
   GST_11,
@@ -604,6 +605,7 @@ export function GstWorksheet() {
   const [uploadMessage, setUploadMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [priceListOpen, setPriceListOpen] = useState(false);
   const [priceListRowId, setPriceListRowId] = useState<string | null>(null);
+  const [priceSheetOpen, setPriceSheetOpen] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -817,6 +819,13 @@ export function GstWorksheet() {
           </button>
           <button
             type="button"
+            onClick={() => setPriceSheetOpen(true)}
+            className="h-11 rounded-lg border border-gray-200 px-3 text-sm font-medium text-black hover:bg-gray-50 md:h-auto md:py-2"
+          >
+            View sheet
+          </button>
+          <button
+            type="button"
             onClick={() => setConfirmClear(true)}
             className="h-11 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 md:h-auto md:py-2"
           >
@@ -926,6 +935,7 @@ export function GstWorksheet() {
         onClose={() => setPriceListOpen(false)}
         onSelect={applyPrice}
       />
+      <PriceSheetModal isOpen={priceSheetOpen} onClose={() => setPriceSheetOpen(false)} />
       <ConfirmModal
         isOpen={confirmClear}
         onClose={() => setConfirmClear(false)}
